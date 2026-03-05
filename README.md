@@ -40,7 +40,7 @@ User Query → Orchestrator → [CEO | Adoption | HR] Agent → Reviewer → Fin
 ### 1. Clone and setup environment
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/amitsarkar007/ceo-claw.git
 cd ceo-claw
 cp .env.example .env
 ```
