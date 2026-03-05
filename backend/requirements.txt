@@ -1,0 +1,10 @@
+# backend/requirements.txt
+
+fastapi>=0.109.0
+uvicorn>=0.27.0
+httpx>=0.26.0
+pydantic>=2.5.0,<2.10.0
+langgraph>=0.1.1,<0.2.0
+langchain-core>=0.2.0,<0.3.0
+stripe>=9.0.0
+python-dotenv>=1.0.0
