@@ -1,5 +1,5 @@
-import json
 from integrations.zai import call_zai
+from utils.json_parse import extract_json
 
 ADOPTION_SYSTEM = """
 You are an AI Adoption Optimizer. Given information about a company's AI tool usage,
@@ -46,12 +46,11 @@ async def run_adoption_agent(query: str) -> dict:
         raw = await call_zai(messages, system_prompt=ADOPTION_SYSTEM, temperature=0.4)
         if not raw:
             return fallback
-        clean = raw.strip().replace("```json", "").replace("```", "").strip()
-        try:
-            return json.loads(clean)
-        except (json.JSONDecodeError, TypeError, ValueError):
-            fallback["answer"] = raw
-            return fallback
+        result = extract_json(raw)
+        if result is not None:
+            return result
+        fallback["answer"] = raw
+        return fallback
     except Exception:
         fallback["answer"] = "Adoption agent failed to process query."
         fallback["risks"] = ["Agent invocation failed"]

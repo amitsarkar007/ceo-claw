@@ -1,5 +1,6 @@
 import json
 from integrations.zai import call_zai
+from utils.json_parse import extract_json
 from registry import AGENT_REGISTRY
 
 ORCHESTRATOR_SYSTEM = """
@@ -33,10 +34,9 @@ async def run_orchestrator(query: str, context: dict = {}) -> dict:
         raw = await call_zai(messages, system_prompt=ORCHESTRATOR_SYSTEM, temperature=0.3)
         if not raw:
             return fallback
-        clean = raw.strip().replace("```json", "").replace("```", "").strip()
-        result = json.loads(clean)
-        return result
-    except json.JSONDecodeError:
+        result = extract_json(raw)
+        if result is not None:
+            return result
         return fallback
     except Exception:
         fallback["reasoning"] = "Orchestrator failed, defaulting to CEO agent"

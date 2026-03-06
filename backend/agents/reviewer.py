@@ -1,5 +1,6 @@
 import json
 from integrations.zai import call_zai
+from utils.json_parse import extract_json
 
 REVIEWER_SYSTEM = """
 You are a Reviewer Agent. You receive raw specialist agent output and:
@@ -33,13 +34,11 @@ Return the improved version as valid JSON.
         if not raw:
             specialist_output["reviewer_note"] = "Reviewer returned empty response — returning original output"
             return specialist_output
-        clean = raw.strip().replace("```json", "").replace("```", "").strip()
-        try:
-            reviewed = json.loads(clean)
+        reviewed = extract_json(raw)
+        if reviewed is not None:
             return {**specialist_output, **reviewed}
-        except (json.JSONDecodeError, TypeError, ValueError):
-            specialist_output["reviewer_note"] = "Reviewer parse failed — returning original output"
-            return specialist_output
+        specialist_output["reviewer_note"] = "Reviewer parse failed — returning original output"
+        return specialist_output
     except Exception:
         specialist_output["reviewer_note"] = "Reviewer invocation failed — returning original output"
         return specialist_output

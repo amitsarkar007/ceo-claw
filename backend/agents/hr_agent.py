@@ -1,5 +1,6 @@
 import json
 from integrations.zai import call_zai
+from utils.json_parse import extract_json
 
 HR_SYSTEM = """
 You are an HR & Wellbeing Agent. You support employees and managers with:
@@ -34,11 +35,10 @@ async def run_hr_agent(query: str) -> dict:
         raw = await call_zai(messages, system_prompt=HR_SYSTEM, temperature=0.5)
         if not raw:
             return fallback
-        clean = raw.strip().replace("```json", "").replace("```", "").strip()
-        try:
-            return json.loads(clean)
-        except (json.JSONDecodeError, TypeError, ValueError):
-            return {"answer": raw, "assumptions": [], "risks": [], "next_actions": [], "confidence": 0.4}
+        result = extract_json(raw)
+        if result is not None:
+            return result
+        return {"answer": raw, "assumptions": [], "risks": [], "next_actions": [], "confidence": 0.4}
     except Exception:
         fallback["answer"] = "HR agent failed to process query."
         fallback["risks"] = ["Agent invocation failed"]

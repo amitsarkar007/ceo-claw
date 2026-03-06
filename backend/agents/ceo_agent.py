@@ -1,5 +1,6 @@
 import json
 from integrations.zai import call_zai
+from utils.json_parse import extract_json
 from integrations.lovable import deploy_to_lovable
 from integrations.stripe import create_stripe_product_link
 
@@ -52,10 +53,8 @@ async def run_ceo_agent(query: str, deploy: bool = False) -> dict:
         raw = await call_zai(messages, system_prompt=CEO_SYSTEM, temperature=0.8)
         if not raw:
             return fallback
-        clean = raw.strip().replace("```json", "").replace("```", "").strip()
-        try:
-            result = json.loads(clean)
-        except (json.JSONDecodeError, TypeError, ValueError):
+        result = extract_json(raw)
+        if result is None:
             result = {"answer": raw, "assumptions": [], "risks": [], "next_actions": [], "confidence": 0.5}
     except Exception:
         fallback["answer"] = "CEO agent failed to process query."
