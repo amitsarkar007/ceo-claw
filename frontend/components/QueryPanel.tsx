@@ -83,31 +83,32 @@ export function QueryPanel({
 
   return (
     <section
-      className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden"
+      className="rounded-2xl border border-[#e0e0e0] dark:border-[#2a2a2a] bg-white dark:bg-[#1a1a1a] shadow-[0_2px_12px_rgba(0,0,0,0.08)] dark:shadow-none overflow-hidden"
       aria-label="Query input"
     >
-      <div className="p-5 sm:p-6">
+      <div className="p-6">
         <div className="flex items-center gap-2 mb-4">
-          <div className="h-2 w-2 rounded-full bg-blue-500" />
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+          <div className="h-2 w-2 rounded-full bg-[#cc4400] dark:bg-[#ff7744]" />
+          <span className="text-[13px] font-bold uppercase tracking-[0.08em] text-[#222222] dark:text-[#aaaaaa]">
             Ask your AI workforce
           </span>
         </div>
 
         <label htmlFor="query-input" className="sr-only">
-          Describe your business question
+          Ask your AI workforce a business question
         </label>
         <textarea
           id="query-input"
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           placeholder="Describe your business question — operations, HR, AI adoption, or market intelligence..."
+          aria-label="Ask your AI workforce a business question"
           className={cn(
-            "w-full min-h-[120px] rounded-xl border border-slate-200 dark:border-slate-700",
-            "bg-slate-50 dark:bg-slate-800/50 px-4 py-3",
-            "text-base text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500",
+            "w-full min-h-[120px] rounded-xl border-[1.5px] border-[#cccccc] dark:border-[#333333]",
+            "bg-slate-50 dark:bg-[#222222] px-4 py-3",
+            "text-[16px] text-[#111111] dark:text-[#f0f0f0] placeholder:text-[#666666] dark:placeholder:text-[#888888]",
             "resize-y outline-none transition-all duration-200",
-            "focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:focus:ring-brand-500/30",
+            "focus:border-[#cc4400] dark:focus:border-[#ff7744] focus:ring-2 focus:ring-[#cc4400]/20 dark:focus:ring-[#ff7744]/30",
             "disabled:opacity-60 disabled:cursor-not-allowed"
           )}
           onKeyDown={(e) => {
@@ -124,15 +125,14 @@ export function QueryPanel({
               onClick={() => onQueryChange(eq)}
               disabled={loading}
               className={cn(
-                "rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-150",
-                "border border-slate-200 dark:border-slate-700",
-                "text-slate-500 dark:text-slate-400",
-                "hover:border-brand-300 hover:text-brand-600 hover:bg-brand-50",
-                "dark:hover:border-brand-700 dark:hover:text-brand-400 dark:hover:bg-brand-950/50",
-                "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-slate-200"
+                "rounded-lg min-h-[40px] px-4 py-2 text-[14px] font-medium transition-all duration-150 text-left",
+                "border border-[#cccccc] dark:border-[#333333] bg-white dark:bg-[#222222]",
+                "text-[#222222] dark:text-[#dddddd]",
+                "hover:border-[#cc4400] dark:hover:border-[#ff7744] hover:bg-brand-50 dark:hover:bg-slate-800/50",
+                "disabled:opacity-50 disabled:cursor-not-allowed"
               )}
             >
-              {eq.length > 55 ? eq.substring(0, 55) + "…" : eq}
+              {eq}
             </button>
           ))}
         </div>
@@ -140,7 +140,7 @@ export function QueryPanel({
         <button
           type="button"
           onClick={() => setAgentsExpanded((v) => !v)}
-          className="mt-4 flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+          className="mt-4 flex w-full items-center justify-between rounded-lg px-3 py-2 text-[13px] font-medium text-[#444444] dark:text-[#aaaaaa] hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
           aria-expanded={agentsExpanded}
         >
           <span>6 AI agents · Powered by Z.AI GLM-4-Plus · Built for 5.5M UK small businesses</span>
@@ -158,17 +158,17 @@ export function QueryPanel({
               return (
                 <div
                   key={agent.name}
-                  className="flex items-start gap-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 p-3 transition-colors hover:border-slate-200 dark:hover:border-slate-700"
+                  className="flex items-start gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 p-3 transition-colors hover:border-slate-300 dark:hover:border-slate-600"
                 >
                   <Icon className={cn("h-4 w-4 mt-0.5 flex-shrink-0", agent.color)} />
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                    <p className="text-[15px] font-semibold text-[#1a1a1a] dark:text-[#e8e8e8]">
                       {agent.name}
                     </p>
-                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                    <p className="text-[14px] text-[#444444] dark:text-[#aaaaaa] mt-0.5">
                       {agent.desc}
                     </p>
-                    <span className="mt-1.5 inline-block rounded-full bg-slate-200/60 dark:bg-slate-700/60 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                    <span className="mt-1.5 inline-block rounded-full bg-slate-200/60 dark:bg-slate-700/60 px-2 py-0.5 text-[12px] font-semibold text-[#444444] dark:text-[#aaaaaa]">
                       {agent.tag}
                     </span>
                   </div>
@@ -179,21 +179,22 @@ export function QueryPanel({
         )}
       </div>
 
-      <div className="border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 px-5 py-3 sm:px-6">
+      <div className="border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 px-6 py-3">
         <div className="flex items-center justify-between gap-4">
-          <p className="text-xs text-slate-400 dark:text-slate-500 hidden sm:block">
-            Press <kbd className="rounded bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 text-[10px] font-mono">⌘ Enter</kbd> to submit
+          <p className="text-[13px] text-[#666666] dark:text-[#888888] hidden sm:block">
+            Press <kbd className="rounded bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 text-[12px] font-mono">⌘ Enter</kbd> to submit
           </p>
           <button
             type="button"
             onClick={onSubmit}
             disabled={loading || !query.trim()}
+            aria-label="Run AI agents to answer your question"
             className={cn(
-              "flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all duration-200",
-              "bg-gradient-to-r from-brand-500 to-brand-600 text-white shadow-md shadow-brand-500/25",
-              "hover:shadow-lg hover:shadow-brand-500/30 hover:brightness-105",
-              "active:scale-[0.98]",
-              "disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:hover:brightness-100"
+              "flex items-center justify-center gap-2 h-12 px-8 rounded-[10px] text-[15px] font-bold transition-all duration-200",
+              "bg-[#cc4400] dark:bg-[#ff6b35] text-white dark:text-black",
+              "hover:brightness-90 hover:shadow-md active:scale-[0.98]",
+              "focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#cc4400] dark:focus-visible:outline-[#ff7744] focus-visible:outline-offset-2",
+              "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:brightness-100"
             )}
           >
             {loading ? (

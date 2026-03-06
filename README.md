@@ -1,28 +1,26 @@
 # Highstreet AI
 
-> Autonomous AI workforce for small businesses. Idea → Landing Page → Revenue. Powered by Z.AI GLM.
+> Autonomous AI workforce for small businesses. Operations, HR, AI adoption, market intelligence. Powered by Z.AI GLM.
 
 Built for UK AI Agent Hack EP4 x OpenClaw.
 
 ## Prize Targets
 
-- 🥇 **Z.AI Bounty** ($4,000 pool) — GLM-4-Plus powers all 6 agents across classification, generation, reasoning and orchestration
+- 🥇 **Z.AI Bounty** ($4,000 pool) — GLM powers all 6 agents across classification, generation, reasoning and orchestration
 - 🥇 **FLock Track** ($5,000 pool) — SDG 8: Decent Work & Economic Growth for 5.5M UK SMBs
 - 🏆 **Anyway Track** (Mac Mini) — Full agent tracing + Stripe Connect commercialisation
 
 ## Stack
 
-- **LLM**: Z.AI GLM-5 (with FLock fallback)
+- **LLM**: Z.AI GLM (with FLock fallback)
 - **Orchestration**: LangGraph multi-agent pipeline
-- **Deploy**: Lovable Build with URL
-- **Payments**: Stripe Connect
 - **Tracing**: Anyway SDK (optional)
 - **Backend**: FastAPI
 - **Frontend**: Next.js 14
 
 ## Z.AI Integration
 
-All agents are powered by Z.AI's GLM-4-Plus model via the Z.AI API.
+All agents are powered by Z.AI's GLM model via the Z.AI API.
 FLock API serves as an automatic fallback using open-source models.
 
 | Agent | GLM Usage Type |
@@ -34,13 +32,13 @@ FLock API serves as an automatic fallback using open-source models.
 | Market Intelligence Agent | Trend synthesis + demand signal interpretation |
 | Reviewer Agent | Output validation + risk flagging + clarity improvement |
 
-**Model**: `glm-4-plus`  
+**Model**: `glm-5` (configurable via `ZAI_MODEL`)  
 **Endpoint**: Z.AI v1 Chat Completions API  
 **Fallback**: FLock API (open-source models) — automatic, zero config  
 **Orchestration**: LangGraph multi-agent pipeline  
 
-### Why GLM-4-Plus?
-GLM-4-Plus powers the entire reasoning layer of Highstreet AI — from understanding 
+### Why GLM?
+GLM powers the entire reasoning layer of Highstreet AI — from understanding 
 a bakery owner's inventory problem to generating a structured 4-week growth plan. 
 Each of the 6 agents uses GLM for a different reasoning task, demonstrating 
 the model's versatility across classification, generation, validation, and orchestration.
@@ -48,7 +46,7 @@ the model's versatility across classification, generation, validation, and orche
 ## Pipeline
 
 ```
-User Query → Orchestrator → [CEO | Adoption | HR] Agent → Reviewer → Final Output
+User Query → Orchestrator → [Operations | Adoption | HR | Market Intelligence] Agent → Reviewer → Final Output
 ```
 
 ---
@@ -59,13 +57,13 @@ User Query → Orchestrator → [CEO | Adoption | HR] Agent → Reviewer → Fin
 
 - Python 3.11+
 - Node.js 18+
-- API keys for Z.AI (required) and optionally FLock, Stripe
+- API keys for Z.AI (required) and optionally FLock
 
 ### 1. Clone and setup environment
 
 ```bash
-git clone https://github.com/amitsarkar007/ceo-claw.git
-cd ceo-claw  # or cd highstreet-ai if you've renamed the project folder
+git clone https://github.com/amitsarkar007/highstreet-ai.git
+cd highstreet-ai
 cp .env.example .env
 ```
 
@@ -107,11 +105,8 @@ Frontend runs at **http://localhost:3000**
 | `ZAI_MODEL` | No | Default: `glm-5` |
 | `FLOCK_API_KEY` | No | [platform.flock.io](https://platform.flock.io) — fallback when Z.AI fails |
 | `FLOCK_BASE_URL` | No | Default: `https://platform.flock.io/api/v1` |
-| `STRIPE_SECRET_KEY` | No | [dashboard.stripe.com](https://dashboard.stripe.com) — for payment links |
 | `ANYWAY_API_KEY` | No | Hackathon sponsor — set `ANYWAY_ENABLED=false` to disable |
 | `ANYWAY_PROJECT_ID` | No | For Anyway tracing |
-
-**Lovable** does not require an API key — it uses [Build with URL](https://docs.lovable.dev/integrations/build-with-url).
 
 ---
 
@@ -134,9 +129,9 @@ Create `.env` in the project root before running (copy from `.env.example`).
 highstreet-ai/
 ├── backend/                 # FastAPI
 │   ├── main.py              # Entry point, routes
-│   ├── agents/              # Orchestrator, CEO, Adoption, HR, Reviewer
+│   ├── agents/              # Orchestrator, Operations, Adoption, HR, Market Intelligence, Reviewer
 │   ├── pipeline/graph.py    # LangGraph workflow
-│   ├── integrations/       # Z.AI, Lovable, Stripe, Anyway
+│   ├── integrations/       # Z.AI, Anyway (FLock fallback in zai.py)
 │   ├── schemas/
 │   ├── registry.py
 │   └── logger.py
@@ -155,9 +150,10 @@ highstreet-ai/
 | Agent | Purpose |
 |-------|---------|
 | **Orchestrator** | Routes by role + intent |
-| **CEO Agent** | Startup ideas, landing pages, Lovable deploy, Stripe links |
+| **Operations Agent** | Workflow optimisation, logistics, scheduling, incident response |
 | **Adoption Optimizer** | AI usage scoring, time saved, automation gaps |
 | **HR Agent** | Onboarding, policy, wellbeing, training |
+| **Market Intelligence Agent** | Demand forecasting, trend analysis, market signals |
 | **Reviewer** | Output QA, clarity, risk flagging |
 
 ---
@@ -202,7 +198,6 @@ without needing a single developer on staff."
 | `404 Not Found` for Z.AI | Ensure `ZAI_BASE_URL=https://api.z.ai/api/paas/v4` |
 | `uvicorn` not found | Use `python -m uvicorn main:app --reload` |
 | Anyway SSL errors | Add `ANYWAY_ENABLED=false` to `.env` |
-| No Lovable URL | Use a startup/idea query (CEO agent), not HR/training |
 | Hydration error | Ensure `globals.css` is imported in `layout.tsx` |
 
 ---
@@ -211,8 +206,7 @@ without needing a single developer on staff."
 
 - `backend/pipeline/graph.py` — LangGraph workflow
 - `backend/agents/` — All specialist agents
-- `backend/integrations/zai.py` — Z.AI client
-- `backend/integrations/lovable.py` — Lovable Build with URL
+- `backend/integrations/zai.py` — Z.AI client (with FLock fallback)
 - `frontend/app/page.tsx` — Main UI
 
 ---

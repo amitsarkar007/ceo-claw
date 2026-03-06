@@ -28,26 +28,26 @@ export function Header({ onToggleHistory, historyCount }: HeaderProps) {
   };
 
   return (
-    <header className="sticky top-0 z-50 glass-card border-b border-slate-200/60 dark:border-slate-800/60">
+    <header className="sticky top-0 z-50 glass-card border-b border-[#e0e0e0] dark:border-[#2a2a2a]">
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-600 shadow-md shadow-brand-500/20">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#ff6b35] shadow-md shadow-brand-500/20">
               <Zap className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-lg font-bold tracking-tight bg-gradient-to-r from-brand-500 to-brand-400 bg-clip-text text-transparent">
+              <h1 className="text-[18px] font-bold tracking-tight text-[#111111] dark:text-[#f0f0f0]">
                 Highstreet AI
               </h1>
-              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500 hidden sm:block">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#555555] dark:text-[#aaaaaa] hidden sm:block">
                 Autonomous AI Workforce
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="hidden sm:flex items-center gap-1.5 rounded-full bg-slate-100 dark:bg-slate-800 px-3 py-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="hidden sm:flex items-center gap-1.5 rounded-full bg-white dark:bg-[#1a2a1a] border border-[#cccccc] dark:border-[#22aa55] px-3 py-1.5 text-[12px] font-semibold text-[#111111] dark:text-[#88dd88]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#22aa55] animate-pulse" />
               GLM-4-Plus · Z.AI
             </span>
 

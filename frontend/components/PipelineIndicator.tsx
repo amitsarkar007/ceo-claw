@@ -69,8 +69,8 @@ export function PipelineIndicator({ loading, completed }: PipelineIndicatorProps
                 className={cn(
                   "flex h-6 w-6 items-center justify-center rounded-full transition-all duration-500",
                   status === "completed" && "bg-emerald-500 text-white",
-                  status === "active" && "bg-brand-500 text-white",
-                  status === "pending" && "bg-slate-200 dark:bg-slate-700 text-slate-400"
+                  status === "active" && "bg-[#cc4400] dark:bg-[#ff6b35] text-white dark:text-black",
+                  status === "pending" && "bg-slate-200 dark:bg-slate-700 text-[#444444] dark:text-[#aaaaaa]"
                 )}
               >
                 {status === "completed" ? (
@@ -78,15 +78,15 @@ export function PipelineIndicator({ loading, completed }: PipelineIndicatorProps
                 ) : status === "active" ? (
                   <Loader2 className="h-3 w-3 animate-spin" />
                 ) : (
-                  <span className="text-[10px] font-bold">{i + 1}</span>
+                  <span className="text-[12px] font-bold">{i + 1}</span>
                 )}
               </div>
               <span
                 className={cn(
-                  "text-xs font-medium transition-colors duration-300 hidden sm:block",
+                  "text-[12px] font-medium transition-colors duration-300 hidden sm:block",
                   status === "completed" && "text-emerald-600 dark:text-emerald-400",
-                  status === "active" && "text-brand-600 dark:text-brand-400",
-                  status === "pending" && "text-slate-400 dark:text-slate-500"
+                  status === "active" && "text-[#cc4400] dark:text-[#ff7744]",
+                  status === "pending" && "text-[#444444] dark:text-[#aaaaaa]"
                 )}
               >
                 {s.label}

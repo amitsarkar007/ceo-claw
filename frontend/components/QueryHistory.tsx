@@ -37,7 +37,7 @@ export function QueryHistory({
       <div
         className={cn(
           "fixed top-0 right-0 z-50 h-full w-full max-w-md",
-          "bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800",
+          "bg-white dark:bg-[#1a1a1a] border-l border-[#e0e0e0] dark:border-[#2a2a2a]",
           "shadow-2xl transition-transform duration-300 ease-out",
           open ? "translate-x-0" : "translate-x-full"
         )}
@@ -46,14 +46,14 @@ export function QueryHistory({
       >
         <div className="flex h-full flex-col">
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 px-5 py-4">
+          <div className="flex items-center justify-between border-b border-[#e0e0e0] dark:border-[#2a2a2a] px-5 py-4">
             <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-slate-400" />
-              <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+              <Clock className="h-4 w-4 text-[#444444] dark:text-[#aaaaaa]" />
+              <h2 className="text-[15px] font-semibold text-[#1a1a1a] dark:text-[#e8e8e8]">
                 Query History
               </h2>
               {history.length > 0 && (
-                <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[12px] font-medium text-[#444444] dark:text-[#aaaaaa]">
                   {history.length}
                 </span>
               )}
@@ -62,7 +62,7 @@ export function QueryHistory({
               {history.length > 0 && (
                 <button
                   onClick={onClear}
-                  className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                  className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[12px] font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
                 >
                   <Trash2 className="h-3 w-3" />
                   Clear all
@@ -82,11 +82,11 @@ export function QueryHistory({
           <div className="flex-1 overflow-y-auto px-3 py-3">
             {history.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center px-6">
-                <Clock className="h-10 w-10 text-slate-200 dark:text-slate-700 mb-3" />
-                <p className="text-sm font-medium text-slate-400 dark:text-slate-500">
+                <Clock className="h-10 w-10 text-[#cccccc] dark:text-slate-600 mb-3" />
+                <p className="text-[15px] font-medium text-[#444444] dark:text-[#aaaaaa]">
                   No queries yet
                 </p>
-                <p className="text-xs text-slate-300 dark:text-slate-600 mt-1">
+                <p className="text-[14px] text-[#555555] dark:text-[#888888] mt-1">
                   Your query history will appear here
                 </p>
               </div>
@@ -95,17 +95,17 @@ export function QueryHistory({
                 {history.map((entry) => (
                   <div
                     key={entry.id}
-                    className="group rounded-xl border border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 bg-white dark:bg-slate-800/30 transition-all"
+                    className="group rounded-xl border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-[#222222]/50 transition-all"
                   >
                     <button
                       type="button"
                       onClick={() => onSelect(entry)}
                       className="w-full text-left px-4 py-3"
                     >
-                      <p className="text-sm font-medium text-slate-700 dark:text-slate-300 line-clamp-2">
+                      <p className="text-[15px] font-medium text-[#1a1a1a] dark:text-[#e8e8e8] line-clamp-2">
                         {entry.query}
                       </p>
-                      <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-400 dark:text-slate-500">
+                      <div className="mt-2 flex items-center gap-2 text-[12px] text-[#444444] dark:text-[#aaaaaa]">
                         <span>{new Date(entry.timestamp).toLocaleDateString()}</span>
                         {entry.result.selected_agent && (
                           <>
@@ -123,11 +123,11 @@ export function QueryHistory({
                         )}
                       </div>
                     </button>
-                    <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 px-4 py-1.5">
+                    <div className="flex items-center justify-between border-t border-slate-200 dark:border-slate-700 px-4 py-1.5">
                       <button
                         type="button"
                         onClick={() => onSelect(entry)}
-                        className="flex items-center gap-1 text-[11px] font-medium text-brand-500 hover:text-brand-600 transition-colors"
+                        className="flex items-center gap-1 text-[12px] font-medium text-[#cc4400] dark:text-[#ff7744] hover:text-[#e55a2b] dark:hover:text-[#ff8a5e] transition-colors"
                       >
                         View result <ArrowRight className="h-3 w-3" />
                       </button>
@@ -137,7 +137,7 @@ export function QueryHistory({
                           e.stopPropagation();
                           onRemove(entry.id);
                         }}
-                        className="flex items-center gap-1 text-[11px] text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 transition-colors"
+                        className="flex items-center gap-1 text-[12px] text-[#666666] hover:text-red-500 dark:text-[#888888] dark:hover:text-red-400 transition-colors"
                       >
                         <Trash2 className="h-3 w-3" />
                       </button>

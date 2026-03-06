@@ -35,7 +35,7 @@ function Card({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm animate-fade-in-up",
+        "rounded-2xl border border-[#e0e0e0] dark:border-[#2a2a2a] bg-white dark:bg-[#1a1a1a] p-5 shadow-sm animate-fade-in-up",
         className
       )}
       style={{ animationDelay: `${delay}ms` }}
@@ -51,7 +51,7 @@ function SectionLabel({ icon: Icon, children, color }: {
   color?: string;
 }) {
   return (
-    <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">
+    <h3 className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-[#444444] dark:text-[#aaaaaa] mb-3">
       <Icon className={cn("h-3.5 w-3.5", color)} />
       {children}
     </h3>
@@ -78,7 +78,7 @@ export function ResultsPanel({ result, onToast }: ResultsPanelProps) {
           <SectionLabel icon={Lightbulb} color="text-brand-500">
             AI Recommendation
           </SectionLabel>
-          <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+          <p className="text-[15px] leading-relaxed text-[#1a1a1a] dark:text-[#e8e8e8] whitespace-pre-wrap">
             {result.answer}
           </p>
         </Card>
@@ -105,23 +105,23 @@ export function ResultsPanel({ result, onToast }: ResultsPanelProps) {
                   key={item.label}
                   className="flex items-center gap-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5"
                 >
-                  <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
+                  <span className="text-[12px] font-semibold text-[#444444] dark:text-[#aaaaaa]">
                     {item.label}
                   </span>
-                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  <span className="text-[13px] font-semibold text-[#1a1a1a] dark:text-[#e8e8e8]">
                     {item.value}
                   </span>
                 </div>
               ))}
             {result.fallback_used && (
               <div className="flex items-center gap-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 px-3 py-1.5">
-                <span className="text-[11px] font-medium text-amber-500">Fallback</span>
+                <span className="text-[12px] font-semibold text-amber-600 dark:text-amber-400">Fallback</span>
                 <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">FLock</span>
               </div>
             )}
           </div>
           {result.pipeline_trace && result.pipeline_trace.length > 0 && (
-            <div className="mt-3 flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
+            <div className="mt-3 flex items-center gap-1.5 text-[12px] text-[#444444] dark:text-[#aaaaaa]">
               {result.pipeline_trace.map((step, i) => (
                 <span key={i} className="flex items-center gap-1.5">
                   {i > 0 && <ArrowRight className="h-3 w-3" />}
@@ -140,11 +140,11 @@ export function ResultsPanel({ result, onToast }: ResultsPanelProps) {
             Business Profile
           </SectionLabel>
           <div className="flex items-center gap-3">
-            <span className="rounded-lg bg-brand-50 dark:bg-brand-950/50 px-3 py-1.5 text-sm font-semibold text-brand-700 dark:text-brand-300 capitalize">
+            <span className="rounded-lg bg-brand-50 dark:bg-brand-950/50 px-3 py-1.5 text-[15px] font-semibold text-[#cc4400] dark:text-[#ff7744] capitalize">
               {result.detected_business_type.replace(/_/g, " ")}
             </span>
             {result.detected_role && (
-              <span className="rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-400 capitalize">
+              <span className="rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5 text-[15px] font-medium text-[#1a1a1a] dark:text-[#e8e8e8] capitalize">
                 {result.detected_role}
               </span>
             )}
@@ -158,7 +158,7 @@ export function ResultsPanel({ result, onToast }: ResultsPanelProps) {
           <SectionLabel icon={Rocket} color="text-brand-500">
             Startup Idea
           </SectionLabel>
-          <h4 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-3">
+          <h4 className="text-lg font-bold text-[#1a1a1a] dark:text-[#e8e8e8] mb-3">
             {result.startup_idea.name}
           </h4>
           <dl className="space-y-2">
@@ -168,10 +168,10 @@ export function ResultsPanel({ result, onToast }: ResultsPanelProps) {
               { label: "Customer", value: result.startup_idea.target_customer },
             ].map(({ label, value }) => (
               <div key={label}>
-                <dt className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                <dt className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#444444] dark:text-[#aaaaaa]">
                   {label}
                 </dt>
-                <dd className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
+                <dd className="text-[15px] text-[#1a1a1a] dark:text-[#e8e8e8] mt-0.5">
                   {value}
                 </dd>
               </div>
@@ -186,10 +186,10 @@ export function ResultsPanel({ result, onToast }: ResultsPanelProps) {
           <SectionLabel icon={Globe} color="text-blue-500">
             Landing Page
           </SectionLabel>
-          <h4 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+          <h4 className="text-lg font-bold text-[#1a1a1a] dark:text-[#e8e8e8]">
             {result.landing_page.headline}
           </h4>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-[15px] text-[#444444] dark:text-[#aaaaaa] mt-1">
             {result.landing_page.subheadline}
           </p>
           {result.landing_page.features?.length > 0 && (
@@ -224,7 +224,7 @@ export function ResultsPanel({ result, onToast }: ResultsPanelProps) {
             >
               {result.adoption_score}
             </span>
-            <span className="text-lg font-medium text-slate-300 dark:text-slate-600 mb-1">
+            <span className="text-lg font-medium text-[#444444] dark:text-[#aaaaaa] mb-1">
               /100
             </span>
           </div>
@@ -240,10 +240,10 @@ export function ResultsPanel({ result, onToast }: ResultsPanelProps) {
             />
           </div>
           {result.time_saved_weekly_hours != null && (
-            <p className="mt-3 flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400">
+            <p className="mt-3 flex items-center gap-1.5 text-[15px] text-[#444444] dark:text-[#aaaaaa]">
               <Clock className="h-3.5 w-3.5" />
               Estimated time saved:{" "}
-              <strong className="text-slate-700 dark:text-slate-300">
+              <strong className="text-[#1a1a1a] dark:text-[#e8e8e8]">
                 {result.time_saved_weekly_hours}h/week
               </strong>
             </p>
@@ -261,7 +261,7 @@ export function ResultsPanel({ result, onToast }: ResultsPanelProps) {
             <button
               type="button"
               onClick={copyNextActions}
-              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-medium text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12px] font-medium text-[#444444] dark:text-[#aaaaaa] hover:text-[#1a1a1a] dark:hover:text-[#e8e8e8] hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             >
               {copied ? <CheckCircle2 className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
               {copied ? "Copied" : "Copy all"}
@@ -271,9 +271,9 @@ export function ResultsPanel({ result, onToast }: ResultsPanelProps) {
             {result.next_actions.map((action, i) => (
               <li
                 key={i}
-                className="flex gap-3 rounded-lg bg-slate-50 dark:bg-slate-800/30 px-4 py-3 text-sm text-slate-700 dark:text-slate-300"
+                className="flex gap-3 rounded-lg bg-slate-50 dark:bg-slate-800/30 px-4 py-3 text-[15px] text-[#1a1a1a] dark:text-[#e8e8e8]"
               >
-                <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-brand-100 dark:bg-brand-900/50 text-[11px] font-bold text-brand-600 dark:text-brand-400">
+                <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-brand-100 dark:bg-brand-900/50 text-[12px] font-bold text-[#cc4400] dark:text-[#ff7744]">
                   {i + 1}
                 </span>
                 {action}

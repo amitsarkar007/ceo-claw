@@ -22,6 +22,13 @@ module.exports = {
           900: "#7d3118",
           950: "#431509",
         },
+        /* WCAG AA accessibility colors */
+        accent: {
+          DEFAULT: "#cc4400",
+          bright: "#ff7744",
+        },
+        "body-text": { light: "#1a1a1a", dark: "#e8e8e8" },
+        "label-text": { light: "#444444", dark: "#aaaaaa" },
       },
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],

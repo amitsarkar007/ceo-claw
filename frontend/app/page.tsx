@@ -64,19 +64,19 @@ export default function Home() {
       <main className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         {/* Hero */}
         <div className="text-center mb-8 sm:mb-10">
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 text-balance">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#1a1a1a] dark:text-[#e8e8e8] text-balance">
             Your autonomous AI workforce
           </h2>
-          <p className="mt-2 text-sm sm:text-base text-slate-500 dark:text-slate-400 max-w-lg mx-auto">
+          <p className="mt-2 text-[15px] text-[#1a1a1a] dark:text-[#e8e8e8] max-w-lg mx-auto">
             Ask anything about operations, HR, AI adoption, or market intelligence.
             Our multi-agent pipeline handles the rest.
           </p>
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-400 dark:text-slate-500">
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
             {["Bakeries", "Coffee Shops", "Clinics", "Trades", "Professional Services"].map(
               (biz) => (
                 <span
                   key={biz}
-                  className="rounded-full border border-slate-200 dark:border-slate-800 px-2.5 py-0.5"
+                  className="rounded-[20px] border-[1.5px] border-[#cc4400] dark:border-[#ff7744] px-[14px] py-[6px] text-[13px] font-semibold text-[#cc4400] dark:text-[#ff7744] hover:bg-[#cc4400] dark:hover:bg-[#ff6b35] hover:text-white dark:hover:text-black transition-colors cursor-default"
                 >
                   {biz}
                 </span>
@@ -99,14 +99,15 @@ export default function Home() {
         {/* Output section */}
         <section className="mt-6" aria-label="Agent output">
           {!loading && !error && !result && (
-            <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 py-16 text-center">
-              <div className="mx-auto h-12 w-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
+            <div className="rounded-2xl border border-dashed border-[#e0e0e0] dark:border-[#333333] bg-white dark:bg-[#161616] py-16 text-center">
+              <div className="mx-auto h-16 w-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
                 <svg
-                  className="h-6 w-6 text-slate-300 dark:text-slate-600"
+                  className="h-12 w-12 text-[#cc4400] dark:text-[#ff6b35]"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
                   strokeWidth={1.5}
+                  aria-hidden
                 >
                   <path
                     strokeLinecap="round"
@@ -115,10 +116,10 @@ export default function Home() {
                   />
                 </svg>
               </div>
-              <p className="text-sm font-medium text-slate-400 dark:text-slate-500">
+              <p className="text-[18px] font-semibold text-[#333333] dark:text-[#e8e8e8]">
                 Results will appear here
               </p>
-              <p className="text-xs text-slate-300 dark:text-slate-600 mt-1">
+              <p className="text-[14px] text-[#555555] dark:text-[#aaaaaa] mt-1">
                 Ask a business question to see your AI workforce in action
               </p>
             </div>
@@ -130,7 +131,7 @@ export default function Home() {
               {[1, 2, 3].map((i) => (
                 <div
                   key={i}
-                  className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5"
+                  className="rounded-2xl border border-[#e0e0e0] dark:border-[#2a2a2a] bg-white dark:bg-[#1a1a1a] p-5"
                 >
                   <div className="animate-pulse space-y-3">
                     <div className="h-3 w-24 rounded-full bg-slate-100 dark:bg-slate-800" />
@@ -168,16 +169,16 @@ export default function Home() {
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-red-700 dark:text-red-400">
+                  <p className="text-[15px] font-semibold text-red-700 dark:text-red-400">
                     Something went wrong
                   </p>
-                  <p className="text-sm text-red-600 dark:text-red-400/80 mt-1">
+                  <p className="text-[15px] text-red-600 dark:text-red-400/90 mt-1">
                     {error}
                   </p>
                   <button
                     type="button"
                     onClick={handleSubmit}
-                    className="mt-3 rounded-lg bg-red-100 dark:bg-red-900/50 px-3 py-1.5 text-xs font-semibold text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/80 transition-colors"
+                    className="mt-3 rounded-lg bg-red-100 dark:bg-red-900/50 px-3 py-1.5 text-[13px] font-semibold text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/80 transition-colors"
                   >
                     Try again
                   </button>

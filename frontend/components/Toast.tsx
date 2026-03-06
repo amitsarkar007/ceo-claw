@@ -40,7 +40,7 @@ export function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
           ) : (
             <AlertCircle className="h-4 w-4 flex-shrink-0" />
           )}
-          <span className="text-sm font-medium flex-1">{toast.message}</span>
+          <span className="text-[15px] font-medium flex-1">{toast.message}</span>
           <button
             onClick={() => onDismiss(toast.id)}
             className="flex-shrink-0 opacity-50 hover:opacity-100 transition-opacity"
