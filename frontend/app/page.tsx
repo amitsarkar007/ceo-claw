@@ -28,14 +28,16 @@ import {
   Lightbulb,
   Globe,
   ExternalLink,
+  Trash2,
 } from "lucide-react";
 import { ToastContainer } from "@/components/Toast";
-import { queryAgents, clearConversation } from "@/lib/api";
+import { queryAgentsStream, clearConversation } from "@/lib/api";
 import { useQueryHistory, useToast } from "@/lib/hooks";
 import { cn, formatConfidence, formatAgent } from "@/lib/utils";
 import type {
   AgentResult,
   HistoryEntry,
+  PipelineEvent,
   ClarifyingQuestion,
   ConversationStatus,
   ChatMessage,
@@ -71,6 +73,19 @@ const EXAMPLE_QUERIES = [
 
 /* ─── helpers ───────────────────────────────────────────────────────── */
 
+function safeText(item: unknown): string {
+  if (typeof item === "string") return item;
+  if (typeof item !== "object" || item === null) return String(item);
+  const obj = item as Record<string, unknown>;
+  const parts = [
+    obj.action,
+    obj.who && `Who: ${obj.who}`,
+    obj.when && `When: ${obj.when}`,
+    obj.time_required && `Time: ${obj.time_required}`,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(" — ") : JSON.stringify(item);
+}
+
 function linkifyPhoneNumbers(text: string) {
   return text.replace(
     /(\d{4}\s?\d{3}\s?\d{4}|\d{3}\s?\d{4})/g,
@@ -88,12 +103,155 @@ function renderMarkdown(text: string) {
   return linkifyPhoneNumbers(html);
 }
 
+/* ─── pipeline ticker ──────────────────────────────────────────────── */
+
+const STAGE_LABELS: Record<string, string> = {
+  guardrails: "Safety Check",
+  orchestrator_assess: "Context Analysis",
+  orchestrator: "Orchestrator",
+  operations_agent: "Operations Agent",
+  hr_agent: "HR & Wellbeing Agent",
+  adoption_agent: "AI Adoption Optimizer",
+  market_intelligence_agent: "Market Intelligence Agent",
+  reviewer: "Quality Review",
+};
+
+const SPECIALIST_SET = new Set([
+  "operations_agent",
+  "hr_agent",
+  "adoption_agent",
+  "market_intelligence_agent",
+]);
+
+function PipelineTicker({ events }: { events: PipelineEvent[] }) {
+  const observed = new Map<
+    string,
+    { started?: number; completed?: number; startMsg?: string; endMsg?: string }
+  >();
+  let specialistKey: string | null = null;
+
+  for (const e of events) {
+    if (e.type !== "step" || !e.agent) continue;
+    if (!observed.has(e.agent)) observed.set(e.agent, {});
+    const d = observed.get(e.agent)!;
+    if (e.status === "started") {
+      d.started = e.timestamp;
+      d.startMsg = e.message;
+    }
+    if (e.status === "complete") {
+      d.completed = e.timestamp;
+      d.endMsg = e.message;
+    }
+    if (SPECIALIST_SET.has(e.agent)) specialistKey = e.agent;
+  }
+
+  const stages = [
+    "guardrails",
+    "orchestrator_assess",
+    "orchestrator",
+    specialistKey || "specialist",
+    "reviewer",
+  ];
+
+  return (
+    <div className="max-w-md w-full animate-fade-in">
+      <div className="rounded-xl border border-[#e8e8e8] dark:border-[#2a2a2a] bg-white dark:bg-[#1a1a1a] overflow-hidden shadow-sm">
+        <div className="px-5 py-3 bg-[#fafafa] dark:bg-[#111111] border-b border-[#e8e8e8] dark:border-[#2a2a2a]">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#cc4400] dark:bg-[#ff6b35] opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#cc4400] dark:bg-[#ff6b35]" />
+            </span>
+            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#cc4400] dark:text-[#ff6b35]">
+              Pipeline Activity
+            </p>
+          </div>
+        </div>
+        <div className="px-5 py-4 space-y-3">
+          {stages.map((key) => {
+            const data = observed.get(key);
+            const label =
+              STAGE_LABELS[key] || key.replace(/_/g, " ") || "Specialist Agent";
+            const isComplete = !!data?.completed;
+            const isActive = !!data?.started && !data?.completed;
+            const isPending = !data;
+            const message = data?.endMsg || data?.startMsg;
+            const elapsed =
+              data?.started && data?.completed
+                ? ((data.completed - data.started) / 1000).toFixed(1)
+                : null;
+
+            return (
+              <div
+                key={key}
+                className={cn(
+                  "flex items-start gap-3 transition-all duration-300",
+                  isPending && "opacity-30"
+                )}
+              >
+                <div className="flex-shrink-0 mt-0.5">
+                  {isComplete ? (
+                    <div className="h-5 w-5 rounded-full bg-emerald-500 flex items-center justify-center">
+                      <Check className="h-3 w-3 text-white" />
+                    </div>
+                  ) : isActive ? (
+                    <div className="h-5 w-5 rounded-full bg-[#cc4400] dark:bg-[#ff6b35] flex items-center justify-center pipeline-pulse">
+                      <Loader2 className="h-3 w-3 text-white dark:text-black animate-spin" />
+                    </div>
+                  ) : (
+                    <div className="h-5 w-5 rounded-full border-2 border-[#e0e0e0] dark:border-[#333333]" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p
+                      className={cn(
+                        "text-[13px] font-semibold",
+                        isComplete &&
+                          "text-emerald-600 dark:text-emerald-400",
+                        isActive && "text-[#cc4400] dark:text-[#ff6b35]",
+                        isPending && "text-[#cccccc] dark:text-[#444444]"
+                      )}
+                    >
+                      {label}
+                    </p>
+                    {elapsed && (
+                      <span className="text-[11px] tabular-nums text-[#bbbbbb] dark:text-[#555555] flex-shrink-0">
+                        {elapsed}s
+                      </span>
+                    )}
+                  </div>
+                  {message ? (
+                    <p
+                      className={cn(
+                        "text-[12px] mt-0.5",
+                        isComplete
+                          ? "text-[#999999]"
+                          : "text-[#666666] dark:text-[#888888]"
+                      )}
+                    >
+                      {message}
+                    </p>
+                  ) : isPending ? (
+                    <p className="text-[12px] mt-0.5 text-[#cccccc] dark:text-[#444444]">
+                      Waiting
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── main component ────────────────────────────────────────────────── */
 
 export default function Home() {
   /* state */
   const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AgentResult | null>(null);
   const [error, setError] = useState("");
 
@@ -118,10 +276,10 @@ export default function Home() {
   const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [nextActionsCopied, setNextActionsCopied] = useState(false);
   const [animateResults, setAnimateResults] = useState(false);
-  const [pipelineStep, setPipelineStep] = useState(0);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const { history, addEntry, removeEntry, clearHistory } = useQueryHistory();
+  const activeHistoryIdRef = useRef<string | null>(null);
+  const { history, addEntry, updateEntry, appendPipelineEvent, removeEntry, clearHistory } = useQueryHistory();
   const { toasts, toast, dismiss } = useToast();
 
   /* effects */
@@ -147,18 +305,17 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!loading || isClarificationTurn) {
-      setPipelineStep(0);
-      return;
+    activeHistoryIdRef.current = activeHistoryId;
+  }, [activeHistoryId]);
+
+  useEffect(() => {
+    if (!activeHistoryId) return;
+    const entry = history.find((e) => e.id === activeHistoryId);
+    if (entry && entry.status === "complete" && entry.result?.summary && !result) {
+      setResult(entry.result);
+      setConversationStatus("complete");
     }
-    setPipelineStep(1);
-    const t1 = setTimeout(() => setPipelineStep(2), 800);
-    const t2 = setTimeout(() => setPipelineStep(3), 1600);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
-  }, [loading, isClarificationTurn]);
+  }, [history, activeHistoryId, result]);
 
   /* handlers */
   const toggleTheme = () => {
@@ -182,15 +339,88 @@ export default function Home() {
     setQuery("");
     setIsClarificationTurn(false);
     setActiveHistoryId(null);
+    activeHistoryIdRef.current = null;
     setSummaryExpanded(false);
     setActionWeek(1);
     setAnimateResults(false);
   }, [conversationId]);
 
-  const handleSubmit = useCallback(async () => {
+  const runStream = useCallback(
+    (entryId: string, message: string, convId: string | null) => {
+      queryAgentsStream(message, convId, {}, (event) => {
+        const now = Date.now();
+
+        if (event.type === "step") {
+          appendPipelineEvent(entryId, {
+            type: event.type as string,
+            agent: event.agent as string,
+            status: event.status as "started" | "complete",
+            message: event.message as string,
+            timestamp: now,
+          });
+        } else if (event.type === "conversation") {
+          const cid = event.conversation_id as string;
+          updateEntry(entryId, { conversationId: cid });
+          if (activeHistoryIdRef.current === entryId) {
+            setConversationId(cid);
+          }
+        } else if (event.type === "clarifying") {
+          updateEntry(entryId, { status: "complete" });
+          if (activeHistoryIdRef.current === entryId) {
+            setConversationId((event.conversation_id as string) || null);
+            setConversationStatus("clarifying");
+            setClarifyingQuestions(
+              (event.questions as ClarifyingQuestion[]) ?? []
+            );
+            setIsClarificationTurn(true);
+          }
+        } else if (event.type === "guardrail") {
+          updateEntry(entryId, { status: "complete" });
+          if (activeHistoryIdRef.current === entryId) {
+            setConversationStatus("guardrail");
+            setGuardrailMessage(
+              (event.guardrail_message as string) ?? null
+            );
+            setGuardrailType((event.guardrail_type as string) ?? null);
+          }
+        } else if (event.type === "result") {
+          const resultData = (event.data ?? {}) as AgentResult;
+          updateEntry(entryId, { result: resultData, status: "complete" });
+          if (activeHistoryIdRef.current === entryId) {
+            setConversationStatus("complete");
+            setResult(resultData);
+            setAnimateResults(true);
+          }
+        } else if (event.type === "error") {
+          updateEntry(entryId, { status: "complete" });
+          if (activeHistoryIdRef.current === entryId) {
+            const msg =
+              (event.message as string) || "Something went wrong";
+            setError(msg);
+            toast(msg, "error");
+          }
+        }
+      }).catch((err) => {
+        updateEntry(entryId, { status: "complete" });
+        if (activeHistoryIdRef.current === entryId) {
+          const msg =
+            err instanceof Error
+              ? err.message
+              : "Something went wrong";
+          setError(msg);
+          toast(msg, "error");
+        }
+      });
+    },
+    [appendPipelineEvent, updateEntry, toast]
+  );
+
+  const handleSubmit = useCallback(() => {
     const trimmed = query.trim();
-    if (!trimmed || loading) return;
-    setLoading(true);
+    if (!trimmed) return;
+
+    const entryId = addEntry(trimmed, {} as AgentResult, "pending");
+    setQuery("");
     setError("");
     setResult(null);
     setGuardrailMessage(null);
@@ -200,61 +430,19 @@ export default function Home() {
     setIsClarificationTurn(false);
     setSummaryExpanded(false);
     setActionWeek(1);
-    setActiveHistoryId(null);
+    setActiveHistoryId(entryId);
+    activeHistoryIdRef.current = entryId;
+    setConversationStatus("processing");
+    setAnimateResults(false);
     setMessages((prev) => [
       ...prev,
       { role: "user", content: trimmed, type: "query" },
     ]);
-    try {
-      const data = await queryAgents(trimmed, conversationId);
-      setConversationId(data.conversation_id);
-      if (data.status === "clarifying") {
-        setConversationStatus("clarifying");
-        setClarifyingQuestions(data.clarifying_questions ?? []);
-        setIsClarificationTurn(true);
-      } else if (data.status === "guardrail_triggered") {
-        setConversationStatus("guardrail");
-        setGuardrailMessage(data.guardrail_message ?? null);
-        setGuardrailType(data.guardrail_type ?? null);
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: data.guardrail_message ?? "",
-            type: "guardrail",
-          },
-        ]);
-      } else if (data.status === "complete") {
-        setConversationStatus("complete");
-        setResult(data.result ?? null);
-        setAnimateResults(true);
-        if (data.result) {
-          addEntry(trimmed, data.result);
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "assistant",
-              content:
-                data.result?.summary ?? data.result?.answer ?? "",
-              type: "answer",
-            },
-          ]);
-        }
-      }
-    } catch (e: unknown) {
-      const message =
-        e instanceof Error
-          ? e.message
-          : "Something went wrong. Please try again.";
-      setError(message);
-      toast(message, "error");
-    } finally {
-      setLoading(false);
-    }
-  }, [query, loading, conversationId, addEntry, toast]);
 
-  const handleClarifySubmit = useCallback(async () => {
-    if (loading) return;
+    runStream(entryId, trimmed, conversationId);
+  }, [query, conversationId, addEntry, runStream]);
+
+  const handleClarifySubmit = useCallback(() => {
     const answerParts: string[] = [];
     for (const q of clarifyingQuestions) {
       const answer = clarifyingAnswers[q.id];
@@ -262,85 +450,57 @@ export default function Home() {
     }
     if (answerParts.length === 0) return;
     const clarifyMessage = answerParts.join(". ");
-    setLoading(true);
+    const entryId = activeHistoryId;
+
     setError("");
     setResult(null);
     setClarifyingQuestions([]);
+    setClarifyingAnswers({});
     setIsClarificationTurn(false);
+    setConversationStatus("processing");
     setMessages((prev) => [
       ...prev,
       { role: "user", content: clarifyMessage, type: "clarification" },
     ]);
-    try {
-      const data = await queryAgents(clarifyMessage, conversationId);
-      setConversationId(data.conversation_id);
-      if (data.status === "clarifying") {
-        setConversationStatus("clarifying");
-        setClarifyingQuestions(data.clarifying_questions ?? []);
-        setClarifyingAnswers({});
-        setIsClarificationTurn(true);
-      } else if (data.status === "guardrail_triggered") {
-        setConversationStatus("guardrail");
-        setGuardrailMessage(data.guardrail_message ?? null);
-        setGuardrailType(data.guardrail_type ?? null);
-      } else if (data.status === "complete") {
-        setConversationStatus("complete");
-        setResult(data.result ?? null);
-        setAnimateResults(true);
-        if (data.result) {
-          addEntry(query || clarifyMessage, data.result);
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "assistant",
-              content:
-                data.result?.summary ?? data.result?.answer ?? "",
-              type: "answer",
-            },
-          ]);
-        }
-      }
-    } catch (e: unknown) {
-      const message =
-        e instanceof Error
-          ? e.message
-          : "Something went wrong. Please try again.";
-      setError(message);
-      toast(message, "error");
-    } finally {
-      setLoading(false);
+
+    if (entryId) {
+      updateEntry(entryId, { status: "pending", pipelineEvents: [] });
+      runStream(entryId, clarifyMessage, conversationId);
     }
   }, [
-    loading,
     clarifyingQuestions,
     clarifyingAnswers,
     conversationId,
-    query,
-    addEntry,
-    toast,
+    activeHistoryId,
+    updateEntry,
+    runStream,
   ]);
 
-  const handleHistorySelect = useCallback(
-    (entry: HistoryEntry) => {
-      if (conversationId) clearConversation(conversationId).catch(() => {});
-      setConversationId(null);
-      setConversationStatus("complete");
-      setClarifyingQuestions([]);
-      setClarifyingAnswers({});
-      setGuardrailMessage(null);
-      setGuardrailType(null);
-      setError("");
-      setQuery("");
-      setIsClarificationTurn(false);
-      setResult(entry.result);
-      setActiveHistoryId(entry.id);
+  const handleHistorySelect = useCallback((entry: HistoryEntry) => {
+    setActiveHistoryId(entry.id);
+    activeHistoryIdRef.current = entry.id;
+    setMobileMenuOpen(false);
+    setSummaryExpanded(false);
+    setActionWeek(1);
+    setClarifyingQuestions([]);
+    setClarifyingAnswers({});
+    setIsClarificationTurn(false);
+    setGuardrailMessage(null);
+    setGuardrailType(null);
+    setError("");
+    setQuery("");
+    setConversationId(entry.conversationId ?? null);
+
+    if (entry.status === "pending") {
+      setConversationStatus("processing");
+      setResult(null);
       setAnimateResults(false);
-      setSummaryExpanded(false);
-      setActionWeek(1);
-      setMobileMenuOpen(false);
-    },
-    [conversationId]
-  );
+    } else {
+      setConversationStatus(entry.result?.summary ? "complete" : "idle");
+      setResult(entry.result ?? null);
+      setAnimateResults(false);
+    }
+  }, []);
 
   const handleSectorClick = (sectorAppend: string) => {
     if (!query.trim()) {
@@ -354,7 +514,7 @@ export default function Home() {
   const handleCopyNextActions = async () => {
     if (!result?.next_actions) return;
     const text = result.next_actions
-      .map((a, i) => `${i + 1}. ${a}`)
+      .map((a, i) => `${i + 1}. ${safeText(a)}`)
       .join("\n");
     await navigator.clipboard.writeText(text);
     setNextActionsCopied(true);
@@ -363,21 +523,25 @@ export default function Home() {
   };
 
   /* derived */
+  const activeEntry = activeHistoryId
+    ? history.find((e) => e.id === activeHistoryId)
+    : undefined;
+  const isProcessing = activeEntry?.status === "pending";
   const displayText = result?.summary || result?.answer || "";
   const fi =
     result?.financial_impact_monthly_gbp || result?.financial_value_monthly_gbp;
-  const hasResults = !!result && !loading;
+  const hasResults = !!result && !isProcessing;
   const showClarifying =
     conversationStatus === "clarifying" &&
     clarifyingQuestions.length > 0 &&
-    !loading;
+    !isProcessing;
   const showGuardrail =
-    conversationStatus === "guardrail" && !!guardrailMessage && !loading;
-  const showLoading = loading && !isClarificationTurn;
+    conversationStatus === "guardrail" && !!guardrailMessage && !isProcessing;
+  const showLoading = isProcessing && !showClarifying && !showGuardrail;
   const showEmpty =
-    !loading &&
     !error &&
     !result &&
+    !isProcessing &&
     conversationStatus === "idle" &&
     !showClarifying &&
     !showGuardrail;
@@ -410,20 +574,15 @@ export default function Home() {
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSubmit();
           }}
-          disabled={loading}
           rows={1}
         />
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={loading || !query.trim()}
+          disabled={!query.trim()}
           className="absolute right-2.5 bottom-2.5 h-9 w-9 rounded-xl bg-[#cc4400] dark:bg-[#ff6b35] text-white dark:text-black flex items-center justify-center disabled:opacity-30 hover:brightness-90 active:scale-95 transition-all"
         >
-          {loading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Send className="h-4 w-4" />
-          )}
+          <Send className="h-4 w-4" />
         </button>
       </div>
       <div className="flex flex-wrap items-center gap-1.5 mt-2 px-1">
@@ -530,7 +689,6 @@ export default function Home() {
                   type="button"
                   onClick={handleClarifySubmit}
                   disabled={
-                    loading ||
                     Object.values(clarifyingAnswers).every((v) => !v)
                   }
                   className="h-11 px-8 rounded-lg text-[15px] font-bold bg-[#cc4400] dark:bg-[#ff6b35] text-white dark:text-black hover:brightness-90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
@@ -543,74 +701,10 @@ export default function Home() {
         </div>
       )}
 
-      {/* STATE 3: Loading / pipeline animation */}
+      {/* STATE 3: Loading / pipeline ticker */}
       {showLoading && (
-        <div className="flex flex-col items-center justify-center h-full min-h-[300px] animate-fade-in">
-          <div className="flex items-center gap-3">
-            {[
-              { label: "Orchestrator", step: 1 },
-              { label: "Specialist", step: 2 },
-              { label: "Reviewer", step: 3 },
-            ].map((s, i) => {
-              const isComplete = pipelineStep > s.step;
-              const isActive = pipelineStep === s.step;
-              return (
-                <div key={s.label} className="flex items-center gap-3">
-                  {i > 0 && (
-                    <div
-                      className={cn(
-                        "h-px w-10 transition-colors duration-500",
-                        pipelineStep >= s.step
-                          ? "bg-emerald-400"
-                          : "bg-[#e0e0e0] dark:bg-[#333333]"
-                      )}
-                    />
-                  )}
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={cn(
-                        "flex h-8 w-8 items-center justify-center rounded-full transition-all duration-500",
-                        isComplete &&
-                          "bg-emerald-500 text-white",
-                        isActive &&
-                          "bg-[#cc4400] dark:bg-[#ff6b35] text-white dark:text-black pipeline-pulse",
-                        !isComplete &&
-                          !isActive &&
-                          "bg-[#e0e0e0] dark:bg-[#333333] text-[#999999]"
-                      )}
-                    >
-                      {isComplete ? (
-                        <Check className="h-4 w-4" />
-                      ) : isActive ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <span className="text-[12px] font-bold">
-                          {s.step}
-                        </span>
-                      )}
-                    </div>
-                    <span
-                      className={cn(
-                        "text-[13px] font-semibold uppercase tracking-wide hidden sm:block",
-                        isComplete &&
-                          "text-emerald-600 dark:text-emerald-400",
-                        isActive &&
-                          "text-[#cc4400] dark:text-[#ff6b35]",
-                        !isComplete &&
-                          !isActive &&
-                          "text-[#999999]"
-                      )}
-                    >
-                      {s.label}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <p className="mt-6 text-[14px] text-[#666666] dark:text-[#888888] italic">
-            Analysing your query…
-          </p>
+        <div className="flex flex-col items-center justify-center h-full min-h-[300px]">
+          <PipelineTicker events={activeEntry?.pipelineEvents ?? []} />
         </div>
       )}
 
@@ -642,7 +736,7 @@ export default function Home() {
       )}
 
       {/* ERROR */}
-      {error && !loading && (
+      {error && !isProcessing && (
         <div
           className="rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 p-5 animate-fade-in"
           role="alert"
@@ -914,7 +1008,7 @@ export default function Home() {
                                 className="flex gap-2.5 rounded-md bg-[#fafafa] dark:bg-[#111111] px-3 py-2 text-[13px] text-[#1a1a1a] dark:text-[#e8e8e8]"
                               >
                                 <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-[#cc4400] dark:text-[#ff6b35] mt-0.5 opacity-40" />
-                                {action}
+                                {safeText(action)}
                               </div>
                             ))}
                           </div>
@@ -1022,7 +1116,7 @@ export default function Home() {
                           <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-[#cc4400]/10 dark:bg-[#ff6b35]/10 text-[11px] font-bold text-[#cc4400] dark:text-[#ff6b35]">
                             {i + 1}
                           </span>
-                          <span>{action}</span>
+                          <span>{safeText(action)}</span>
                         </li>
                       ))}
                     </ol>
@@ -1042,7 +1136,7 @@ export default function Home() {
                           className="flex gap-2 text-[13px] text-[#b85000] dark:text-[#ffaa44] border-l-2 border-l-amber-400 dark:border-l-[#ffaa44] pl-2.5"
                         >
                           <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
-                          <span>{risk}</span>
+                          <span>{safeText(risk)}</span>
                         </div>
                       ))}
                     </div>
@@ -1064,7 +1158,7 @@ export default function Home() {
                           <span className="text-[#999999] flex-shrink-0">
                             ~
                           </span>
-                          <span>{a}</span>
+                          <span>{safeText(a)}</span>
                         </div>
                       ))}
                     </div>
@@ -1091,7 +1185,7 @@ export default function Home() {
                       key={i}
                       className="text-[12px] text-amber-800 dark:text-amber-200 leading-relaxed"
                     >
-                      {flag}
+                      {safeText(flag)}
                     </p>
                   ))}
                 </div>
@@ -1159,7 +1253,7 @@ export default function Home() {
                             className="flex gap-2 text-[14px] text-[#1a1a1a] dark:text-[#e8e8e8]"
                           >
                             <ChevronRight className="h-4 w-4 flex-shrink-0 text-[#cc4400] dark:text-[#ff6b35] mt-0.5" />
-                            {item}
+                            {safeText(item)}
                           </li>
                         ))}
                       </ul>
@@ -1720,37 +1814,67 @@ export default function Home() {
           <div className="space-y-1.5">
             {history.map((entry) => {
               const isActive = activeHistoryId === entry.id;
+              const isPending = entry.status === "pending";
               return (
-                <button
+                <div
                   key={entry.id}
-                  type="button"
-                  onClick={() => handleHistorySelect(entry)}
                   className={cn(
-                    "w-full text-left rounded-lg px-3 py-2.5 transition-all",
+                    "group relative rounded-lg transition-all",
                     isActive
-                      ? "border-l-[3px] border-l-[#cc4400] dark:border-l-[#ff6b35] bg-[#fff8f5] dark:bg-[#1a1210] pl-[9px]"
+                      ? "border-l-[3px] border-l-[#cc4400] dark:border-l-[#ff6b35] bg-[#fff8f5] dark:bg-[#1a1210]"
                       : "hover:bg-[#f0f0f0] dark:hover:bg-[#1a1a1a]"
                   )}
                 >
-                  <p className="text-[13px] font-bold text-[#1a1a1a] dark:text-[#e8e8e8] truncate">
-                    {entry.query.length > 60
-                      ? entry.query.substring(0, 60) + "…"
-                      : entry.query}
-                  </p>
-                  <div className="flex items-center gap-2 mt-1">
-                    {entry.result.selected_agent && (
-                      <span className="rounded-full bg-[#cc4400]/10 dark:bg-[#ff6b35]/10 px-2 py-0.5 text-[10px] font-semibold text-[#cc4400] dark:text-[#ff6b35] capitalize">
-                        {entry.result.selected_agent.replace(/_/g, " ")}
-                      </span>
+                  <button
+                    type="button"
+                    onClick={() => handleHistorySelect(entry)}
+                    className={cn(
+                      "w-full text-left px-3 py-2.5 pr-8",
+                      isActive && "pl-[9px]"
                     )}
-                    <span className="text-[11px] text-[#999999]">
-                      {new Date(entry.timestamp).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                  </div>
-                </button>
+                  >
+                    <p className="text-[13px] font-bold text-[#1a1a1a] dark:text-[#e8e8e8] truncate">
+                      {entry.query.length > 50
+                        ? entry.query.substring(0, 50) + "…"
+                        : entry.query}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      {isPending ? (
+                        <span className="flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                          <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                          Processing
+                        </span>
+                      ) : entry.result?.selected_agent ? (
+                        <span className="rounded-full bg-[#cc4400]/10 dark:bg-[#ff6b35]/10 px-2 py-0.5 text-[10px] font-semibold text-[#cc4400] dark:text-[#ff6b35] capitalize">
+                          {entry.result.selected_agent.replace(/_/g, " ")}
+                        </span>
+                      ) : null}
+                      <span className="text-[11px] text-[#999999]">
+                        {new Date(entry.timestamp).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeEntry(entry.id);
+                      if (isActive) {
+                        setResult(null);
+                        setActiveHistoryId(null);
+                        setConversationStatus("idle");
+                      }
+                      toast("Chat deleted");
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-md text-[#cccccc] dark:text-[#444444] opacity-0 group-hover:opacity-100 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
+                    aria-label="Delete chat"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               );
             })}
           </div>

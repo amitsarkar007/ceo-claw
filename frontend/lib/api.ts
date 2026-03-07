@@ -77,3 +77,44 @@ export async function healthCheck(): Promise<{ status: string; agents: string[] 
   const res = await fetchWithRetry(`${API_URL}/api/health`, {}, 1);
   return res.json();
 }
+
+export async function queryAgentsStream(
+  message: string,
+  conversationId?: string | null,
+  context: Record<string, unknown> = {},
+  onEvent?: (event: Record<string, unknown>) => void,
+): Promise<void> {
+  const res = await fetch(`${API_URL}/api/query/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message,
+      conversation_id: conversationId ?? null,
+      context,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new ApiError(body || `Stream error ${res.status}`, res.status);
+  }
+
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop()!;
+    for (const line of lines) {
+      if (line.startsWith("data: ")) {
+        try {
+          onEvent?.(JSON.parse(line.slice(6)));
+        } catch { /* ignore malformed SSE */ }
+      }
+    }
+  }
+}

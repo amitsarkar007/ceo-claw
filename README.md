@@ -18,7 +18,7 @@ Built for **UK AI Agent Hack EP4 x OpenClaw**.
 
 | Layer | Technology |
 |-------|------------|
-| **LLM** | Z.AI GLM (`glm-5`) with FLock fallback |
+| **LLM** | Z.AI GLM (`glm-4-plus`) with FLock fallback |
 | **Orchestration** | LangGraph multi-agent pipeline |
 | **Backend** | FastAPI + Python 3.11 |
 | **Frontend** | Next.js 14 · React 18 · TypeScript · Tailwind CSS |
@@ -33,33 +33,35 @@ Built for **UK AI Agent Hack EP4 x OpenClaw**.
 User Query
    │
    ▼
-Guardrails (regex + LLM safety check)
+Guardrails (regex + LLM safety check)       ◄── SSE: step started/complete
    │
    ▼
 Orchestrator Assess ──► needs_clarification? ──► return questions
-   │ sufficient
+   │ sufficient                                  ◄── SSE: step started/complete
    ▼
-Orchestrator Route
+Orchestrator Route                               ◄── SSE: step started/complete
    │
    ├─► Operations Agent
-   ├─► HR & Wellbeing Agent
+   ├─► HR & Wellbeing Agent                      ◄── SSE: step started/complete
    ├─► AI Adoption Optimizer
    └─► Market Intelligence Agent
          │
          ▼
-      Reviewer (QA + risk flagging)
+      Reviewer (QA + risk flagging)              ◄── SSE: step started/complete
          │
          ▼
-      Final Output
+      Final Output                               ◄── SSE: result
 ```
 
 Multi-turn conversations are supported — the orchestrator asks clarifying questions for vague queries before routing.
+
+The entire pipeline streams real-time progress events via **Server-Sent Events (SSE)** so the frontend can display a live ticker showing exactly which agent is working and how long each step takes.
 
 ---
 
 ## Z.AI Integration
 
-All agents are powered by Z.AI's GLM model via the Z.AI v1 Chat Completions API. FLock API serves as an automatic fallback (retries up to 3 times then switches).
+All agents are powered by Z.AI's GLM model via the [Z.AI Chat Completions API](https://docs.z.ai/api-reference/introduction). [FLock API](https://docs.flock.io/flock-products/api-platform/api-endpoint) serves as an automatic fallback (retries up to 3 times then switches).
 
 | Agent | GLM Usage |
 |-------|-----------|
@@ -71,12 +73,26 @@ All agents are powered by Z.AI's GLM model via the Z.AI v1 Chat Completions API.
 | Market Intelligence Agent | Trend synthesis + demand signal interpretation + seasonal forecasting |
 | Reviewer | Output validation + risk flagging + clarity improvement |
 
-**Model**: `glm-5` (configurable via `ZAI_MODEL`)
-**Fallback**: FLock API (open-source models) — automatic, zero config
+**Model**: `glm-4-plus` (configurable via `ZAI_MODEL`)
+**Fallback**: FLock API (open-source models, default: `deepseek-v3`) — automatic after 3 retries, zero config
+
+> **Note**: `glm-5` is a reasoning model that only supports streaming responses. The backend uses non-streaming requests, so use `glm-4-plus` (recommended) or implement streaming if you want to use `glm-5`.
 
 ### Why GLM?
 
 GLM powers the entire reasoning layer of Highstreet AI — from understanding a bakery owner's inventory problem to generating a structured 4-week growth plan. Each agent uses GLM for a different reasoning task, demonstrating the model's versatility across classification, generation, validation, and orchestration.
+
+---
+
+## Key Features
+
+- **Real-time pipeline streaming** — SSE endpoint (`/api/query/stream`) emits live progress events as each agent works; the frontend displays a Pipeline Ticker with per-stage status, messages, and elapsed time
+- **Per-chat state isolation** — each conversation stores its own pipeline events, results, and conversation ID; switching between chats instantly restores the correct view
+- **Concurrent processing** — start a new query while another is still running; background streams keep writing to their respective history entries
+- **Multi-turn conversations** — the orchestrator asks clarifying questions for vague queries before routing to a specialist
+- **Chat management** — instant history sidebar updates, delete individual chats, "Processing" badge on in-flight entries
+- **Automatic LLM fallback** — Z.AI GLM-4-Plus with seamless FLock failover after 3 retries
+- **Two-tier guardrails** — regex pattern matching for crisis/injection + LLM safety classifier
 
 ---
 
@@ -86,7 +102,7 @@ GLM powers the entire reasoning layer of Highstreet AI — from understanding a 
 
 - Python 3.11+
 - Node.js 18+
-- Z.AI API key (required) — [z.ai/manage-apikey](https://z.ai/manage-apikey/apikey-list)
+- Z.AI API key (required) — [z.ai/manage-apikey](https://z.ai/manage-apikey/apikey-list) · [API reference](https://docs.z.ai/api-reference/introduction)
 
 ### 1. Clone and configure
 
@@ -142,11 +158,11 @@ Create `.env` in the project root before running (copy from `.env.example`).
 
 | Key | Required | Description |
 |-----|----------|-------------|
-| `ZAI_API_KEY` | **Yes** | [z.ai/manage-apikey](https://z.ai/manage-apikey/apikey-list) |
+| `ZAI_API_KEY` | **Yes** | [Z.AI API Keys](https://z.ai/manage-apikey/apikey-list) · [API docs](https://docs.z.ai/api-reference/introduction) |
 | `ZAI_BASE_URL` | No | Default: `https://api.z.ai/api/paas/v4` |
-| `ZAI_MODEL` | No | Default: `glm-5` |
-| `FLOCK_API_KEY` | No | [platform.flock.io](https://platform.flock.io) — fallback when Z.AI is unavailable |
-| `FLOCK_BASE_URL` | No | Default: `https://platform.flock.io/api/v1` |
+| `ZAI_MODEL` | No | Default: `glm-4-plus` (`glm-5` requires streaming, not yet supported) |
+| `FLOCK_API_KEY` | No | [FLock Platform](https://platform.flock.io) · [API docs](https://docs.flock.io/flock-products/api-platform/api-endpoint) — fallback when Z.AI is unavailable |
+| `FLOCK_BASE_URL` | No | Default: `https://api.flock.io/v1` |
 | `ANYWAY_API_KEY` | No | Anyway tracing (hackathon sponsor) |
 | `ANYWAY_PROJECT_ID` | No | Anyway project ID |
 | `ANYWAY_ENABLED` | No | Set `false` to disable tracing |
@@ -159,12 +175,26 @@ Create `.env` in the project root before running (copy from `.env.example`).
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/query` | Submit a query — runs the full agent pipeline |
+| `POST` | `/api/query` | Submit a query — blocking, returns full result |
+| `POST` | `/api/query/stream` | Submit a query — SSE stream with real-time pipeline events |
 | `DELETE` | `/api/conversation/{id}` | Clear a conversation |
 | `GET` | `/api/agents` | List the agent registry |
 | `GET` | `/api/health` | Health check |
 
 Rate limited to 20 requests per 10 minutes per IP.
+
+### SSE Stream Events
+
+The `/api/query/stream` endpoint returns `text/event-stream` with these event types:
+
+| Event Type | Description |
+|------------|-------------|
+| `conversation` | Emitted first — contains the `conversation_id` |
+| `step` | Pipeline progress — includes `agent`, `status` (`started`/`complete`), `message` |
+| `clarifying` | Orchestrator needs more info — contains `questions` array |
+| `guardrail` | Safety check triggered — contains `guardrail_message` |
+| `result` | Final output — contains the full `data` object |
+| `error` | Something went wrong — contains error `message` |
 
 ---
 
@@ -183,7 +213,7 @@ highstreet-ai/
 │   │   ├── reviewer.py                  # Output QA + risk flagging
 │   │   └── guardrails.py               # Safety: regex + LLM classifier
 │   ├── pipeline/
-│   │   └── graph.py                     # LangGraph workflow definition
+│   │   └── graph.py                     # LangGraph workflow + SSE streaming generators
 │   ├── integrations/
 │   │   ├── zai.py                       # Z.AI client (with FLock fallback)
 │   │   └── anyway.py                    # Anyway SDK tracing
@@ -215,9 +245,9 @@ highstreet-ai/
 │   │   ├── PipelineIndicator.tsx        # Agent pipeline animation
 │   │   └── Toast.tsx                    # Notification toasts
 │   ├── lib/
-│   │   ├── api.ts                       # Backend API client
-│   │   ├── types.ts                     # TypeScript interfaces
-│   │   ├── hooks.ts                     # Custom React hooks
+│   │   ├── api.ts                       # Backend API client (REST + SSE streaming)
+│   │   ├── types.ts                     # TypeScript interfaces (PipelineEvent, HistoryEntry, etc.)
+│   │   ├── hooks.ts                     # Custom React hooks (per-entry pipeline events)
 │   │   └── utils.ts                     # Utility functions
 │   ├── public/
 │   │   └── favicon.svg
@@ -254,7 +284,15 @@ highstreet-ai/
 
 > "How can I reduce pastry waste and better manage the morning rush in my coffee shop?"
 
-Watch the pipeline trace animate: `GUARDRAILS → ORCHESTRATOR → OPERATIONS AGENT → REVIEWER → OUTPUT`
+Watch the **live Pipeline Ticker** — real-time SSE events show each stage as it runs:
+
+```
+✓ Safety Check        Safety checks passed                 0.4s
+✓ Context Analysis    Context analysed                     0.8s
+✓ Orchestrator        Detected coffee shop → Operations    1.1s
+⟳ Operations Agent    Analysing operations & workflows
+○ Quality Review      Waiting
+```
 
 **Step 2** — Show the structured output:
 - Business Profile card (coffee_shop / owner)
@@ -283,7 +321,13 @@ This routes to the **Adoption Agent** instead — the orchestrator picks the rig
 
 | Issue | Solution |
 |-------|----------|
-| `404 Not Found` for Z.AI | Ensure `ZAI_BASE_URL=https://api.z.ai/api/paas/v4` |
+| Z.AI returns `500` error | You're likely using `glm-5` which only supports streaming. Change `ZAI_MODEL=glm-4-plus` in `.env` |
+| "Z.AI failed after 3 attempts" in logs | Check `ZAI_MODEL` (use `glm-4-plus`), verify API key at [z.ai/manage-apikey](https://z.ai/manage-apikey/apikey-list) |
+| React error: "Objects are not valid as a React child" | The LLM returned structured objects instead of strings. The frontend `safeText()` helper handles this — ensure you're on the latest code |
+| `404 Not Found` for Z.AI | Ensure `ZAI_BASE_URL=https://api.z.ai/api/paas/v4` — see [Z.AI docs](https://docs.z.ai/api-reference/introduction) |
+| `401 Unauthorized` for Z.AI | Regenerate your API key at [z.ai/manage-apikey](https://z.ai/manage-apikey/apikey-list) |
+| FLock fallback fires on every request | Normal if Z.AI model is misconfigured. Check `ZAI_MODEL` — `glm-4-plus` is recommended |
+| FLock fallback also fails | Ensure `FLOCK_BASE_URL=https://api.flock.io/v1` — see [FLock docs](https://docs.flock.io/flock-products/api-platform/api-endpoint) |
 | `uvicorn` not found | Run with `python -m uvicorn main:app --reload` |
 | Anyway SSL errors | Set `ANYWAY_ENABLED=false` in `.env` |
 | Hydration error in Next.js | Ensure `globals.css` is imported in `layout.tsx` |

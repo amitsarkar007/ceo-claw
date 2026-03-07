@@ -183,11 +183,22 @@ export interface AgentResult {
   stripe_product_url?: string;
 }
 
+export interface PipelineEvent {
+  type: string;
+  agent?: string;
+  status?: "started" | "complete";
+  message?: string;
+  timestamp: number;
+}
+
 export interface HistoryEntry {
   id: string;
   query: string;
   result: AgentResult;
   timestamp: number;
+  status?: "pending" | "complete";
+  pipelineEvents?: PipelineEvent[];
+  conversationId?: string | null;
 }
 
 export type PipelineStage = "idle" | "orchestrator" | "specialist" | "reviewer" | "complete";

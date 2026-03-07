@@ -8,7 +8,7 @@ from typing import List, Dict, Any
 # General endpoint (not /v1 - that returns 404)
 ZAI_BASE_URL = os.getenv("ZAI_BASE_URL", "https://api.z.ai/api/paas/v4")
 ZAI_API_KEY = os.getenv("ZAI_API_KEY")
-ZAI_MODEL = os.getenv("ZAI_MODEL", "glm-5")
+ZAI_MODEL = os.getenv("ZAI_MODEL", "glm-4-plus")
 FLOCK_MODEL = os.getenv("FLOCK_MODEL", "deepseek-v3")
 
 _fallback_used: ContextVar[bool] = ContextVar("zai_fallback_used", default=False)
@@ -87,7 +87,11 @@ async def call_flock(
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.post(
             f"{flock_url}/chat/completions",
-            headers={"Authorization": f"Bearer {flock_key}"},
+            headers={
+                "x-litellm-api-key": flock_key,
+                "Content-Type": "application/json",
+                "accept": "application/json",
+            },
             json=payload
         )
         response.raise_for_status()

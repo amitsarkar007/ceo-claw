@@ -722,7 +722,7 @@ export function ResultsPanel({ result, onToast }: ResultsPanelProps) {
                         className="flex gap-2 text-[14px] text-[#1a1a1a] dark:text-[#e8e8e8]"
                       >
                         <ChevronRight className="h-4 w-4 flex-shrink-0 text-[#cc4400] dark:text-[#ff7744] mt-0.5" />
-                        {item}
+                        {typeof item === "string" ? item : JSON.stringify(item)}
                       </li>
                     ))}
                   </ul>
@@ -1132,23 +1132,41 @@ export function ResultsPanel({ result, onToast }: ResultsPanelProps) {
               Next Actions
             </SectionLabel>
             <CopyButton
-              text={result.next_actions.map((a, i) => `${i + 1}. ${a}`).join("\n")}
+              text={result.next_actions.map((a, i) => `${i + 1}. ${typeof a === "string" ? a : (a as Record<string, unknown>).action ?? JSON.stringify(a)}`).join("\n")}
               onToast={onToast}
               label="Copy all"
             />
           </div>
           <ol className="space-y-2">
-            {result.next_actions.map((action, i) => (
-              <li
-                key={i}
-                className="flex gap-3 rounded-lg bg-slate-50 dark:bg-slate-800/30 px-4 py-3 text-[15px] text-[#1a1a1a] dark:text-[#e8e8e8]"
-              >
-                <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-brand-100 dark:bg-brand-900/50 text-[12px] font-bold text-[#cc4400] dark:text-[#ff7744]">
-                  {i + 1}
-                </span>
-                {action}
-              </li>
-            ))}
+            {result.next_actions.map((action, i) => {
+              const text =
+                typeof action === "string"
+                  ? action
+                  : typeof action === "object" && action !== null
+                  ? [
+                      (action as Record<string, unknown>).action,
+                      (action as Record<string, unknown>).who &&
+                        `Who: ${(action as Record<string, unknown>).who}`,
+                      (action as Record<string, unknown>).when &&
+                        `When: ${(action as Record<string, unknown>).when}`,
+                      (action as Record<string, unknown>).time_required &&
+                        `Time: ${(action as Record<string, unknown>).time_required}`,
+                    ]
+                      .filter(Boolean)
+                      .join(" — ")
+                  : String(action);
+              return (
+                <li
+                  key={i}
+                  className="flex gap-3 rounded-lg bg-slate-50 dark:bg-slate-800/30 px-4 py-3 text-[15px] text-[#1a1a1a] dark:text-[#e8e8e8]"
+                >
+                  <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-brand-100 dark:bg-brand-900/50 text-[12px] font-bold text-[#cc4400] dark:text-[#ff7744]">
+                    {i + 1}
+                  </span>
+                  {text}
+                </li>
+              );
+            })}
           </ol>
         </Card>
       )}
@@ -1170,7 +1188,7 @@ export function ResultsPanel({ result, onToast }: ResultsPanelProps) {
                     <span className="text-red-400 dark:text-red-600 mt-0.5">
                       &bull;
                     </span>
-                    {risk}
+                    {typeof risk === "string" ? risk : JSON.stringify(risk)}
                   </li>
                 ))}
               </ul>
@@ -1193,7 +1211,7 @@ export function ResultsPanel({ result, onToast }: ResultsPanelProps) {
                     <span className="text-amber-400 dark:text-amber-600 mt-0.5">
                       &bull;
                     </span>
-                    {assumption}
+                    {typeof assumption === "string" ? assumption : JSON.stringify(assumption)}
                   </li>
                 ))}
               </ul>
@@ -1271,7 +1289,7 @@ export function ResultsPanel({ result, onToast }: ResultsPanelProps) {
                 key={i}
                 className="text-[12px] text-amber-800 dark:text-amber-200 leading-relaxed"
               >
-                {flag}
+                {typeof flag === "string" ? flag : JSON.stringify(flag)}
               </li>
             ))}
           </ul>

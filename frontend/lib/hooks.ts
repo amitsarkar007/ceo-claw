@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import type { HistoryEntry, AgentResult } from "./types";
+import type { HistoryEntry, AgentResult, PipelineEvent } from "./types";
 
 const HISTORY_KEY = "highstreet-ai-history";
 const MAX_HISTORY = 50;
@@ -48,14 +48,33 @@ export function useQueryHistory() {
   );
 
   const addEntry = useCallback(
-    (query: string, result: AgentResult) => {
-      const entry: HistoryEntry = {
-        id: crypto.randomUUID?.() ?? Date.now().toString(36),
-        query,
-        result,
-        timestamp: Date.now(),
-      };
+    (query: string, result: AgentResult, status: "pending" | "complete" = "complete"): string => {
+      const id = crypto.randomUUID?.() ?? Date.now().toString(36);
+      const entry: HistoryEntry = { id, query, result, timestamp: Date.now(), status };
       setHistory((prev) => [entry, ...prev].slice(0, MAX_HISTORY));
+      return id;
+    },
+    [setHistory]
+  );
+
+  const updateEntry = useCallback(
+    (id: string, updates: Partial<Pick<HistoryEntry, "result" | "status" | "pipelineEvents" | "conversationId">>) => {
+      setHistory((prev) =>
+        prev.map((e) => (e.id === id ? { ...e, ...updates } : e))
+      );
+    },
+    [setHistory]
+  );
+
+  const appendPipelineEvent = useCallback(
+    (id: string, event: PipelineEvent) => {
+      setHistory((prev) =>
+        prev.map((e) =>
+          e.id === id
+            ? { ...e, pipelineEvents: [...(e.pipelineEvents || []), event] }
+            : e
+        )
+      );
     },
     [setHistory]
   );
@@ -71,7 +90,7 @@ export function useQueryHistory() {
     setHistory([]);
   }, [setHistory]);
 
-  return { history, addEntry, removeEntry, clearHistory, loaded };
+  return { history, addEntry, updateEntry, appendPipelineEvent, removeEntry, clearHistory, loaded };
 }
 
 export function useToast() {

@@ -4,8 +4,10 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pipeline.graph import run_pipeline, run_conversation_turn
+from fastapi.responses import StreamingResponse
+from pipeline.graph import run_pipeline, run_conversation_turn, run_conversation_turn_streaming
 from schemas.conversation import QueryRequest
+import json as _json
 from logger import log_run
 from registry import AGENT_REGISTRY
 from collections import defaultdict
@@ -73,6 +75,34 @@ async def handle_query(request_body: QueryRequest, request: Request):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/query/stream")
+async def handle_query_stream(request_body: QueryRequest, request: Request):
+    """SSE endpoint streaming real-time pipeline progress events."""
+    client_ip = request.client.host
+    if is_rate_limited(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many requests. Please wait a moment before trying again.",
+        )
+
+    async def event_stream():
+        try:
+            async for event in run_conversation_turn_streaming(
+                message=request_body.message,
+                conversation_id=request_body.conversation_id,
+                context=request_body.context,
+            ):
+                yield f"data: {_json.dumps(event)}\n\n"
+
+                if event.get("type") == "result" and event.get("data"):
+                    log_run(request_body.message, event["data"])
+
+        except Exception as exc:
+            yield f"data: {_json.dumps({'type': 'error', 'message': str(exc)})}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 @app.delete("/api/conversation/{conversation_id}")
