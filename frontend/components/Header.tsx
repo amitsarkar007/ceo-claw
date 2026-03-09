@@ -1,15 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Sun, Moon, History, Zap } from "lucide-react";
-import { cn } from "@/lib/utils";
+import Link from "next/link";
+import { Sun, Moon, BarChart3 } from "lucide-react";
 
-interface HeaderProps {
-  onToggleHistory: () => void;
-  historyCount: number;
-}
-
-export function Header({ onToggleHistory, historyCount }: HeaderProps) {
+export function Header() {
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
@@ -28,54 +23,53 @@ export function Header({ onToggleHistory, historyCount }: HeaderProps) {
   };
 
   return (
-    <header className="sticky top-0 z-50 glass-card border-b border-[#e0e0e0] dark:border-[#2a2a2a]">
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#ff6b35] shadow-md shadow-brand-500/20">
-              <Zap className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-[18px] font-bold tracking-tight text-[#111111] dark:text-[#f0f0f0]">
-                Highstreet AI
-              </h1>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#555555] dark:text-[#aaaaaa] hidden sm:block">
-                Autonomous AI Workforce
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="hidden sm:flex items-center gap-1.5 rounded-full bg-white dark:bg-[#1a2a1a] border border-[#cccccc] dark:border-[#22aa55] px-3 py-1.5 text-[12px] font-semibold text-[#111111] dark:text-[#88dd88]">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#22aa55] animate-pulse" />
-              GLM-4-Plus · Z.AI
-            </span>
-
-            <button
-              onClick={onToggleHistory}
-              className={cn(
-                "relative flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
-                "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400"
-              )}
-              aria-label="Query history"
-            >
-              <History className="h-4 w-4" />
-              {historyCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-500 px-1 text-[10px] font-bold text-white">
-                  {historyCount > 99 ? "99+" : historyCount}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={toggleTheme}
-              className="flex h-9 w-9 items-center justify-center rounded-lg transition-colors hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400"
-              aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </button>
-          </div>
+    <header className="relative h-[64px] flex items-center justify-between px-4 sm:px-6 bg-[#fafafa] dark:bg-[#111111] border-b border-[#eeeeee] dark:border-[#222222] flex-shrink-0">
+      {/* Logo — left */}
+      <Link
+        href="/"
+        className="flex items-center gap-3 min-w-0 flex-shrink-0"
+      >
+        <img
+          src="/favicon.png"
+          alt="Highstreet AI"
+          className="h-11 w-11 rounded-xl flex-shrink-0"
+        />
+        <div className="hidden sm:block min-w-0">
+          <h1 className="text-[17px] font-bold text-[#1a1a1a] dark:text-[#f0f0f0] leading-tight truncate">
+            Highstreet AI
+          </h1>
+          <p className="text-[11px] font-medium uppercase tracking-wider text-[#666666] dark:text-[#888888]">
+            Autonomous AI Workforce
+          </p>
         </div>
+      </Link>
+
+      {/* Model name — center */}
+      <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center">
+        <span className="flex items-center gap-1.5 rounded-full bg-white dark:bg-[#1a1a1a] border border-[#e0e0e0] dark:border-[#333333] px-3 py-1.5 text-[11px] font-medium text-[#555555] dark:text-[#999999]">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          Z.AI GLM-4-Plus
+        </span>
+      </div>
+
+      {/* Dashboard + theme toggle — right */}
+      <div className="flex items-center gap-1 flex-shrink-0">
+        <Link
+          href="/dashboard"
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-[#666666] dark:text-[#aaaaaa] hover:bg-[#e8e8e8] dark:hover:bg-[#222222] transition-colors"
+          aria-label="Dashboard"
+          title="Dashboard"
+        >
+          <BarChart3 className="h-4 w-4" />
+        </Link>
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-[#666666] dark:text-[#aaaaaa] hover:bg-[#e8e8e8] dark:hover:bg-[#222222] transition-colors"
+          aria-label={dark ? "Light mode" : "Dark mode"}
+        >
+          {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        </button>
       </div>
     </header>
   );

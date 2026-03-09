@@ -143,17 +143,21 @@ GLM powers the entire reasoning layer of Highstreet AI — from understanding a 
 
 ## Key Features
 
-- **Real-time pipeline streaming** — SSE endpoint (`/api/query/stream`) emits live progress events as each agent works; the frontend displays a collapsible Pipeline Ticker with per-stage status, messages, and elapsed time
+- **Real-time pipeline streaming** — SSE endpoint (`/api/query/stream`) emits live progress events as each agent works; the frontend displays a collapsible Pipeline Ticker with per-stage status, messages, and elapsed time. A 2-minute client timeout prevents indefinite hangs; specialist steps show "This step may take up to a minute" during long runs.
 - **Multi-turn conversation memory** — full conversation history is passed to every agent; the orchestrator detects follow-up intent ("continue", "expand on that", "what about X instead") and re-routes to the same specialist without re-explaining context
 - **Scrollable conversation thread** — follow-up messages append to the same chat; all prior Q&A pairs remain visible in a scrollable thread; sidebar shows the first question and never overwrites on follow-up
 - **Per-chat state isolation** — each conversation stores its own pipeline events, results, and conversation ID in SQLite; switching between chats or starting a new chat gives a completely fresh context
 - **Concurrent processing** — start a new query while another is still running; background streams keep writing to their respective history entries
 - **Clarifying questions** — the orchestrator asks targeted questions for vague queries before routing to a specialist (skipped for follow-ups when context already exists)
 - **Chat management** — instant history sidebar updates, delete individual chats, "Processing" badge on in-flight entries, Cmd+Enter / Ctrl+Enter to submit
+- **Shared header and footer** — the `Header` (logo left, Z.AI GLM-4-Plus badge center, dashboard link + dark mode toggle right) and slim `Footer` (brand, tagline, copyright) are rendered in the root layout on every page
+- **Dashboard** — analytics view at `/dashboard` accessible via the bar-chart icon in the header; shows query count, average confidence, agent usage, and intent breakdown derived from session history
 - **Copy to clipboard** — copy full results or next actions with one click; 2-second checkmark confirmation
 - **Automatic LLM fallback** — Z.AI GLM-4-Plus with seamless FLock failover after 3 retries
 - **Two-tier guardrails** — regex pattern matching for crisis/injection + LLM safety classifier
 - **Error boundary** — React error boundary wraps the main chat UI with a user-friendly fallback and refresh option
+- **Stream timeout** — Client-side 2-minute timeout on streaming requests; shows a clear error if the pipeline takes too long
+- **Pipeline timing logs** — Backend logs per-step duration (orchestrator, specialist, reviewer) for debugging slow runs
 
 ---
 
@@ -270,6 +274,8 @@ The `/api/query/stream` endpoint returns `text/event-stream` with these event ty
 | `result` | Final output — contains the full `data` object |
 | `error` | Something went wrong — contains error `message` |
 
+The frontend stream has a 2-minute timeout (configurable via `STREAM_TIMEOUT_MS` in `frontend/lib/api.ts`). If the pipeline exceeds this, the client aborts and shows: *"Request timed out. The pipeline can take up to a minute — please try again."*
+
 ---
 
 ## Project Structure
@@ -307,15 +313,15 @@ highstreet-ai/
 │   └── Dockerfile
 ├── frontend/
 │   ├── app/
-│   │   ├── layout.tsx                   # Root layout + metadata
+│   │   ├── layout.tsx                   # Root layout + metadata + shared Header + Footer
 │   │   ├── page.tsx                     # Main chat UI (thread view, ErrorBoundary)
 │   │   ├── globals.css                  # Global styles
 │   │   ├── dashboard/page.tsx           # Dashboard view
 │   │   └── product/[id]/page.tsx        # Product detail (Coming Soon)
 │   ├── components/
 │   │   ├── ErrorBoundary.tsx            # React error boundary
-│   │   ├── Header.tsx                   # App header
-│   │   ├── Footer.tsx                   # App footer
+│   │   ├── Header.tsx                   # Shared header (logo left, Z.AI GLM-4-Plus center, dashboard + dark mode right)
+│   │   ├── Footer.tsx                   # Slim footer (brand, tagline, copyright) — rendered in root layout
 │   │   ├── QueryInput.tsx               # Query input (Cmd+Enter submit)
 │   │   ├── QueryPanel.tsx               # Query submission panel
 │   │   ├── QueryHistory.tsx             # Conversation history sidebar
@@ -374,6 +380,7 @@ Watch the **live Pipeline Ticker** — real-time SSE events show each stage as i
 ✓ Context Analysis    Context analysed                     0.8s
 ✓ Orchestrator        Detected coffee shop → Operations    1.1s
 ⟳ Operations Agent    Analysing operations & workflows
+                      This step may take up to a minute
 ○ Quality Review      Waiting
 ```
 
@@ -395,11 +402,9 @@ The same chat entry stays selected; the first response remains visible; the seco
 
 Click "+ New" first for a fresh chat, then submit. This routes to the **Adoption Agent** — the orchestrator picks the right specialist automatically.
 
-**Step 5** — Show the dashboard metrics:
-- Active Agents: 4
-- AI Adoption Score: 68%
-- Estimated Time Saved: 8 hrs/week
-- Recommended Next Automations: inventory tracking, shift scheduling, promotions
+**Step 5** — Click the **Dashboard** icon (bar chart) in the top-right of the shared header (visible on every page) to navigate to `http://localhost:3000/dashboard`. Show the analytics view:
+- Total Queries, Average Confidence, Most-used Agent, Session Duration
+- Agent usage breakdown and intent distribution charts
 
 **Closing**:
 "Highstreet AI gives every small business owner their own digital workforce — without needing a single developer on staff."
@@ -444,6 +449,7 @@ Click "+ New" first for a fresh chat, then submit. This routes to the **Adoption
 | Anyway SSL errors | Set `ANYWAY_ENABLED=false` in `.env` |
 | Hydration error in Next.js | Ensure `globals.css` is imported in `layout.tsx` |
 | Rate limited | Wait 10 minutes or restart the backend |
+| "Request timed out" on stream | Pipeline can take ~60s for full run. Ensure Z.AI/FLock are reachable; check backend logs for step durations. Increase `STREAM_TIMEOUT_MS` in `frontend/lib/api.ts` if needed |
 
 ---
 

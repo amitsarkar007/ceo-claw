@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 
 export const metadata: Metadata = {
   title: "Highstreet AI — Autonomous AI Workforce for SMBs",
@@ -78,8 +80,12 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="font-sans antialiased bg-white dark:bg-[#0f0f0f] text-[#1a1a1a] dark:text-[#e8e8e8]">
-        {children}
+      <body className="font-sans antialiased bg-white dark:bg-[#0f0f0f] text-[#1a1a1a] dark:text-[#e8e8e8] flex flex-col h-screen">
+        <Header />
+        <div className="flex-1 overflow-hidden flex flex-col">
+          {children}
+        </div>
+        <Footer />
       </body>
     </html>
   );

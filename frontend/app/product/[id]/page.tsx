@@ -3,7 +3,7 @@ import { ArrowLeft, ExternalLink, Zap } from "lucide-react";
 
 export default function ProductPage({ params }: { params: { id: string } }) {
   return (
-    <main className="min-h-screen bg-white dark:bg-slate-950">
+    <main className="flex-1 overflow-y-auto bg-white dark:bg-[#0f0f0f]">
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         <Link
           href="/"

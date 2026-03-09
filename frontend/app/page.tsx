@@ -2,10 +2,6 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import {
-  Sun,
-  Moon,
-  Menu,
-  X,
   Send,
   Loader2,
   Check,
@@ -16,7 +12,6 @@ import {
   ChevronRight,
   MessageSquare,
   Users,
-  Wrench,
   Shield,
   BookOpen,
   TrendingUp,
@@ -29,6 +24,7 @@ import {
   Globe,
   ExternalLink,
   Trash2,
+  Menu,
 } from "lucide-react";
 import { ToastContainer } from "@/components/Toast";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -225,7 +221,7 @@ function PipelineTicker({ events }: { events: PipelineEvent[] }) {
                       <Check className="h-3 w-3 text-white" />
                     </div>
                   ) : isActive ? (
-                    <div className="h-5 w-5 rounded-full bg-[#cc4400] dark:bg-[#ff6b35] flex items-center justify-center pipeline-pulse">
+                    <div className="h-5 w-5 rounded-full bg-[#cc4400] dark:bg-[#ff6b35] flex items-center justify-center pipeline-pulse" title="This step may take up to a minute">
                       <Loader2 className="h-3 w-3 text-white dark:text-black animate-spin" />
                     </div>
                   ) : (
@@ -261,6 +257,11 @@ function PipelineTicker({ events }: { events: PipelineEvent[] }) {
                       )}
                     >
                       {message}
+                      {isActive && SPECIALIST_SET.has(key) && (
+                        <span className="block mt-1 text-[11px] text-[#999999] dark:text-[#555555]">
+                          This step may take up to a minute
+                        </span>
+                      )}
                     </p>
                   ) : isPending ? (
                     <p className="text-[12px] mt-0.5 text-[#cccccc] dark:text-[#444444]">
@@ -300,7 +301,6 @@ export default function Home() {
   const [guardrailType, setGuardrailType] = useState<string | null>(null);
   const [isClarificationTurn, setIsClarificationTurn] = useState(false);
 
-  const [dark, setDark] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
   const [actionWeek, setActionWeek] = useState(1);
@@ -316,16 +316,6 @@ export default function Home() {
   const { toasts, toast, dismiss } = useToast();
 
   /* effects */
-  useEffect(() => {
-    const stored = localStorage.getItem("theme");
-    const prefersDark = window.matchMedia(
-      "(prefers-color-scheme: dark)"
-    ).matches;
-    const isDark = stored === "dark" || (!stored && prefersDark);
-    setDark(isDark);
-    document.documentElement.classList.toggle("dark", isDark);
-  }, []);
-
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -351,13 +341,6 @@ export default function Home() {
   }, [history, activeHistoryId, result]);
 
   /* handlers */
-  const toggleTheme = () => {
-    const next = !dark;
-    setDark(next);
-    document.documentElement.classList.toggle("dark", next);
-    localStorage.setItem("theme", next ? "dark" : "light");
-  };
-
   const resetConversation = useCallback(() => {
     if (conversationId) clearConversation(conversationId).catch(() => {});
     setConversationId(null);
@@ -2072,12 +2055,6 @@ export default function Home() {
         )}
       </div>
 
-      {/* FOOTER */}
-      <div className="h-[40px] flex items-center justify-center px-4 flex-shrink-0 border-t border-[#f0f0f0] dark:border-[#222222]">
-        <p className="text-[10px] text-[#cccccc] dark:text-[#444444]">
-          Highstreet AI · Powered by Z.AI GLM-4-Plus
-        </p>
-      </div>
     </>
   );
 
@@ -2085,56 +2062,7 @@ export default function Home() {
 
   return (
     <ErrorBoundary>
-    <div className="h-screen overflow-hidden flex flex-col">
-      {/* TOP HEADER BAR */}
-      <header className="h-[56px] flex items-center justify-center px-4 bg-[#fafafa] dark:bg-[#111111] border-b border-[#eeeeee] dark:border-[#222222] flex-shrink-0 relative">
-        <div className="flex items-center gap-3">
-          <img
-            src="/favicon.png"
-            alt="Highstreet AI"
-            className="h-8 w-8 rounded-lg"
-          />
-          <div>
-            <h1 className="text-[16px] font-bold text-[#1a1a1a] dark:text-[#f0f0f0] leading-tight">
-              Highstreet AI
-            </h1>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#666666] dark:text-[#888888]">
-              Autonomous AI Workforce
-            </p>
-          </div>
-          <span className="flex items-center gap-1 rounded-full bg-white dark:bg-[#1a2a1a] border border-[#cccccc] dark:border-[#22aa55] px-2 py-1 text-[10px] font-semibold text-[#111111] dark:text-[#88dd88]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#22aa55] animate-pulse" />
-            GLM-4-Plus
-          </span>
-        </div>
-        <div className="absolute right-4 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-[#666666] dark:text-[#aaaaaa] hover:bg-[#e8e8e8] dark:hover:bg-[#222222] transition-colors"
-            aria-label={dark ? "Light mode" : "Dark mode"}
-          >
-            {dark ? (
-              <Sun className="h-4 w-4" />
-            ) : (
-              <Moon className="h-4 w-4" />
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen((v) => !v)}
-            className="md:hidden h-8 w-8 flex items-center justify-center rounded-lg text-[#666666] hover:bg-[#e8e8e8] dark:hover:bg-[#222222] transition-colors"
-            aria-label="Menu"
-          >
-            {mobileMenuOpen ? (
-              <X className="h-4 w-4" />
-            ) : (
-              <Menu className="h-4 w-4" />
-            )}
-          </button>
-        </div>
-      </header>
-
+    <div className="h-full overflow-hidden flex flex-col">
       {/* MAIN CONTENT ROW */}
       <div className="flex-1 flex overflow-hidden">
         {/* LEFT SIDEBAR — desktop only */}
@@ -2142,8 +2070,18 @@ export default function Home() {
           {leftPanelContent}
         </aside>
 
+        {/* MOBILE HISTORY BUTTON — shown on small screens */}
+        <button
+          type="button"
+          onClick={() => setMobileMenuOpen((v) => !v)}
+          className="md:hidden absolute top-3 left-3 z-40 h-8 w-8 flex items-center justify-center rounded-lg bg-white dark:bg-[#1a1a1a] border border-[#e0e0e0] dark:border-[#333333] text-[#666666] dark:text-[#aaaaaa] shadow-sm hover:bg-[#f0f0f0] dark:hover:bg-[#222222] transition-colors"
+          aria-label="Open history"
+        >
+          <Menu className="h-4 w-4" />
+        </button>
+
         {/* RIGHT PANEL */}
-        <main className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-[#0f0f0f]">
+        <main className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-[#0f0f0f] relative">
           {showEmpty ? (
             <div className="flex-1 flex flex-col items-center justify-center p-4 md:p-8 animate-fade-in">
               <h2 className="text-[28px] font-bold text-[#1a1a1a] dark:text-[#e8e8e8] leading-[1.2]">
@@ -2198,7 +2136,7 @@ export default function Home() {
           onClick={() => setMobileMenuOpen(false)}
         >
           <div
-            className="absolute top-[56px] left-0 right-0 bottom-0 bg-[#fafafa] dark:bg-[#111111] overflow-y-auto flex flex-col"
+            className="absolute top-0 left-0 right-0 bottom-0 bg-[#fafafa] dark:bg-[#111111] overflow-y-auto flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {leftPanelContent}

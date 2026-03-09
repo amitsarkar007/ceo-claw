@@ -245,8 +245,11 @@ async def run_pipeline_streaming(
     last_agent: str | None = None,
 ):
     """Async generator that yields SSE pipeline events then the final result."""
+    import time
+    import logging
     from integrations.zai import set_fallback_used, get_fallback_used
 
+    log = logging.getLogger("pipeline")
     set_fallback_used(False)
     query_id = str(uuid.uuid4())
     pipeline_trace: list[str] = []
@@ -255,7 +258,9 @@ async def run_pipeline_streaming(
     yield {"type": "step", "agent": "orchestrator", "status": "started",
            "message": "Classifying your query & detecting business type"}
 
+    t0 = time.perf_counter()
     orch_result = await run_orchestrator(query, context, conversation_history=history, last_agent=last_agent)
+    log.info("orchestrator %.2fs query_id=%s", time.perf_counter() - t0, query_id)
     pipeline_trace.append("orchestrator")
     await trace("orchestrator", query_id, orch_result)
 
@@ -273,8 +278,11 @@ async def run_pipeline_streaming(
     yield {"type": "step", "agent": selected, "status": "started",
            "message": AGENT_VERBS.get(selected, f"{agent_label} working")}
 
+    t1 = time.perf_counter()
     runner = SPECIALIST_RUNNERS.get(selected, run_operations_agent)
     specialist_result = await runner(query, conversation_history=history)
+    specialist_elapsed = time.perf_counter() - t1
+    log.info("%s %.2fs query_id=%s", selected, specialist_elapsed, query_id)
     pipeline_trace.append(selected)
     await trace(selected, query_id, specialist_result)
 
@@ -284,7 +292,9 @@ async def run_pipeline_streaming(
     yield {"type": "step", "agent": "reviewer", "status": "started",
            "message": "Validating numbers, UK compliance & plain English"}
 
+    t2 = time.perf_counter()
     reviewed = await run_reviewer(specialist_result, query, conversation_history=history)
+    log.info("reviewer %.2fs query_id=%s", time.perf_counter() - t2, query_id)
     pipeline_trace.append("reviewer")
     await trace("reviewer", query_id, reviewed)
 

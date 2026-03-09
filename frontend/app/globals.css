@@ -38,14 +38,12 @@
 
   html {
     height: 100%;
-    overflow: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   body {
     height: 100%;
-    overflow: hidden;
     font-size: 14px;
     line-height: 1.5;
     background-color: var(--bg);

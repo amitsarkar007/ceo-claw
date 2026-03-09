@@ -17,6 +17,12 @@ dist/
 .env.local
 .env.*.local
 
+# Database (runtime data, not for source control)
+*.db
+*.sqlite
+*.sqlite3
+backend/data/
+
 # Logs (keep logs/.gitkeep so directory exists)
 logs/*
 !logs/.gitkeep

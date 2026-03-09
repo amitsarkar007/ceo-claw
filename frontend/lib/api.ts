@@ -85,12 +85,18 @@ export async function healthCheck(): Promise<{ status: string; agents: string[] 
   return res.json();
 }
 
+/** Timeout for streaming pipeline (2 min — pipeline can take ~60s for full run). */
+const STREAM_TIMEOUT_MS = 120_000;
+
 export async function queryAgentsStream(
   message: string,
   conversationId?: string | null,
   context: Record<string, unknown> = {},
   onEvent?: (event: Record<string, unknown>) => void,
 ): Promise<void> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
+
   const res = await fetch(`${API_URL}/api/query/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -99,6 +105,7 @@ export async function queryAgentsStream(
       conversation_id: conversationId ?? null,
       context,
     }),
+    signal: controller.signal,
   });
 
   if (!res.ok) {
@@ -110,18 +117,32 @@ export async function queryAgentsStream(
   const decoder = new TextDecoder();
   let buffer = "";
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop()!;
-    for (const line of lines) {
-      if (line.startsWith("data: ")) {
-        try {
-          onEvent?.(JSON.parse(line.slice(6)));
-        } catch { /* ignore malformed SSE */ }
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop()!;
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          try {
+            const ev = JSON.parse(line.slice(6));
+            onEvent?.(ev);
+            if (ev?.type === "result") clearTimeout(timeoutId);
+          } catch { /* ignore malformed SSE */ }
+        }
       }
     }
+    clearTimeout(timeoutId);
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new ApiError(
+        "Request timed out. The pipeline can take up to a minute — please try again.",
+        0
+      );
+    }
+    throw err;
   }
 }
