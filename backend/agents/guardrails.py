@@ -1,4 +1,5 @@
 import re
+from config import settings
 from integrations.zai import call_zai
 import json
 
@@ -199,7 +200,7 @@ async def check_guardrails(message: str, history: list = []) -> dict:
         raw = await call_zai(
             [{"role": "user", "content": prompt}],
             system_prompt=GUARDRAIL_SYSTEM,
-            temperature=0.1,
+            temperature=settings.GUARDRAILS_TEMPERATURE,
         )
 
         clean = raw.strip().replace("```json", "").replace("```", "").strip()

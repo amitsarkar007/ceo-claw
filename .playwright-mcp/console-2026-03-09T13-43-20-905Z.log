@@ -1,0 +1,57 @@
+[    3917ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/:0
+[    5108ms] Error: Cannot find module './819.js'
+Require stack:
+- /home/amit-sarkar/Documents/highstreet-ai/frontend/.next/server/webpack-runtime.js
+- /home/amit-sarkar/Documents/highstreet-ai/frontend/.next/server/app/_not-found/page.js
+- /home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/server/require.js
+- /home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/server/load-components.js
+- /home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/build/utils.js
+- /home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/server/dev/hot-middleware.js
+- /home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/server/dev/hot-reloader-webpack.js
+- /home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/server/lib/router-server.js
+- /home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/server/lib/start-server.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1421:15)
+    at <unknown> (file:///home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/server/require-hook.js:55:36)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1059:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1064:22)
+    at Module._load (node:internal/modules/cjs/loader:1227:37)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:245:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1504:12)
+    at mod.require (file:///home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/server/require-hook.js:65:28)
+    at require (node:internal/modules/helpers:152:16)
+    at __webpack_require__.f.require (file:///home/amit-sarkar/Documents/highstreet-ai/frontend/.next/server/webpack-runtime.js:198:28)
+    at <unknown> (file:///home/amit-sarkar/Documents/highstreet-ai/frontend/.next/server/webpack-runtime.js:111:40)
+    at Array.reduce (<anonymous>)
+    at __webpack_require__.e (file:///home/amit-sarkar/Documents/highstreet-ai/frontend/.next/server/webpack-runtime.js:110:67)
+    at Array.map (<anonymous>)
+    at __webpack_require__.X (file:///home/amit-sarkar/Documents/highstreet-ai/frontend/.next/server/webpack-runtime.js:162:22)
+    at <unknown> (file:///home/amit-sarkar/Documents/highstreet-ai/frontend/.next/server/app/page.js:3:49760)
+    at Object.<anonymous> (file:///home/amit-sarkar/Documents/highstreet-ai/frontend/.next/server/app/page.js:3:49805)
+    at Module._compile (node:internal/modules/cjs/loader:1761:14)
+    at Object..js (node:internal/modules/cjs/loader:1893:10)
+    at Module.load (node:internal/modules/cjs/loader:1481:32)
+    at Module._load (node:internal/modules/cjs/loader:1300:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:245:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1504:12)
+    at mod.require (file:///home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/server/require-hook.js:65:28)
+    at require (node:internal/modules/helpers:152:16)
+    at requirePage (file:///home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/server/require.js:109:84)
+    at <unknown> (file:///home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/server/load-components.js:98:84)
+    at async loadComponentsImpl (file:///home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/server/load-components.js:98:26)
+    at async DevServer.findPageComponentsImpl (file:///home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/server/next-server.js:710:36)
+    at async DevServer.findPageComponents (file:///home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/server/dev/next-dev-server.js:577:20)
+    at async DevServer.renderPageComponent (file:///home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/server/base-server.js:1905:24)
+    at async DevServer.renderToResponseImpl (file:///home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/server/base-server.js:1957:32)
+    at async DevServer.pipeImpl (file:///home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/server/base-server.js:915:25)
+    at async NextNodeServer.handleCatchallRenderRequest (file:///home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/server/next-server.js:272:17)
+    at async DevServer.handleRequestImpl (file:///home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/server/base-server.js:811:17)
+    at async (file:///home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/server/dev/next-dev-server.js:339:20)
+    at async Span.traceAsyncFn (file:///home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/trace/trace.js:154:20)
+    at async DevServer.handleRequest (file:///home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/server/dev/next-dev-server.js:336:24)
+    at async invokeRender (file:///home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/server/lib/router-server.js:174:21)
+    at async handleRequest (file:///home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/server/lib/router-server.js:353:24)
+    at async requestHandlerImpl (file:///home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/server/lib/router-server.js:377:13)
+    at async Server.requestListener (file:///home/amit-sarkar/Documents/highstreet-ai/frontend/node_modules/next/dist/server/lib/start-server.js:141:13)

@@ -1,4 +1,5 @@
 import json
+from config import settings
 from integrations.zai import call_zai
 from utils.json_parse import extract_json
 
@@ -63,11 +64,13 @@ Improve: summary (or answer), assumptions, risks, next_actions, confidence, and 
 Return valid JSON only. No prose outside the JSON.
 """
 
-async def run_reviewer(specialist_output: dict, original_query: str) -> dict:
+async def run_reviewer(specialist_output: dict, original_query: str, conversation_history: list | None = None) -> dict:
     if specialist_output is None:
         return {"answer": "No specialist output to review.", "assumptions": [], "risks": [], "next_actions": [], "confidence": 0.0}
     try:
-        prompt = f"""
+        from utils.history import format_history_block
+        history_block = format_history_block(conversation_history or [])
+        prompt = f"""{history_block}
 Original query: {original_query}
 
 Specialist output to review:
@@ -76,7 +79,7 @@ Specialist output to review:
 Return the improved version as valid JSON.
 """
         messages = [{"role": "user", "content": prompt}]
-        raw = await call_zai(messages, system_prompt=REVIEWER_SYSTEM, temperature=0.3)
+        raw = await call_zai(messages, system_prompt=REVIEWER_SYSTEM, temperature=settings.REVIEWER_TEMPERATURE)
         if not raw:
             specialist_output["reviewer_note"] = "Reviewer returned empty response — returning original output"
             return specialist_output

@@ -1,4 +1,5 @@
 import json
+from config import settings
 from integrations.zai import call_zai
 from utils.json_parse import extract_json
 from registry import AGENT_REGISTRY
@@ -21,6 +22,18 @@ Given a user query, detect:
    - "strategic": user is planning ahead, thinking about growth or change
    - "operational_crisis": user has an urgent problem affecting revenue or staff right now
 6. The best specialist agent — choose ONE of: operations_agent, hr_agent, adoption_agent, market_intelligence_agent
+7. Whether this is a follow-up to a previous exchange: set "is_followup" to true if the user
+   is continuing, expanding, clarifying, or refining a prior conversation.
+
+FOLLOW-UP DETECTION:
+If conversation history is provided, look at the user's new message carefully.
+Messages like "continue", "expand on that", "tell me more", "what about X instead",
+"can you clarify point 2", "give me a more detailed plan", "now do the same for Y",
+or any message that references or builds on prior context IS a follow-up.
+When is_followup is true, you MUST set selected_agent to the same agent shown in
+the history's last assistant turn (provided as "last_agent" in the context) unless
+the user EXPLICITLY asks about a completely different domain (e.g. switching from
+operations to HR).
 
 Return ONLY valid JSON:
 {
@@ -30,27 +43,39 @@ Return ONLY valid JSON:
   "intent": "string",
   "urgency": "quick_win | strategic | operational_crisis",
   "selected_agent": "string",
+  "is_followup": true | false,
   "reasoning": "string — one sentence explaining your routing decision",
   "confidence": 0.0-1.0
 }
 """
 
-async def run_orchestrator(query: str, context: dict = {}) -> dict:
+async def run_orchestrator(query: str, context: dict = {}, conversation_history: list | None = None, last_agent: str | None = None) -> dict:
     fallback = {
         "detected_business_type": "general",
         "detected_role": "owner",
         "intent": "general",
         "selected_agent": "operations_agent",
+        "is_followup": False,
         "reasoning": "JSON parse failed, defaulting to operations agent",
         "confidence": 0.4
     }
     try:
-        messages = [{"role": "user", "content": f"Query: {query}\nContext: {json.dumps(context)}"}]
-        raw = await call_zai(messages, system_prompt=ORCHESTRATOR_SYSTEM, temperature=0.3)
+        from utils.history import format_history_block
+        history_block = format_history_block(conversation_history or [])
+
+        ctx = dict(context)
+        if last_agent:
+            ctx["last_agent"] = last_agent
+
+        prompt = f"{history_block}Query: {query}\nContext: {json.dumps(ctx)}"
+        messages = [{"role": "user", "content": prompt}]
+        raw = await call_zai(messages, system_prompt=ORCHESTRATOR_SYSTEM, temperature=settings.ORCHESTRATOR_TEMPERATURE)
         if not raw:
             return fallback
         result = extract_json(raw)
         if result is not None:
+            if result.get("is_followup") and last_agent:
+                result["selected_agent"] = last_agent
             return result
         return fallback
     except Exception:
@@ -138,7 +163,7 @@ async def run_orchestrator_assess(
     raw = await call_zai(
         messages,
         system_prompt=ORCHESTRATOR_ASSESS_SYSTEM,
-        temperature=0.2,
+        temperature=settings.ORCHESTRATOR_ASSESS_TEMPERATURE,
     )
 
     clean = raw.strip().replace("```json", "").replace("```", "").strip()

@@ -97,6 +97,30 @@ function CopyButton({ text, onToast, label = "Copy" }: { text: string; onToast: 
   );
 }
 
+function getFullPlainText(result: AgentResult): string {
+  const parts: string[] = [];
+  const t = result.summary || result.answer || "";
+  if (t) parts.push(`AI Recommendation:\n${t}`);
+  if (result.key_metrics?.length) {
+    parts.push("\nKey Metrics:");
+    result.key_metrics.forEach((m) => {
+      parts.push(`- ${m.metric_name}: ${m.current_estimate} vs ${m.uk_benchmark}`);
+    });
+  }
+  if (result.quick_wins?.length) {
+    parts.push("\nQuick Wins:");
+    result.quick_wins.forEach((w) => parts.push(`- ${w.action}: ${w.impact}`));
+  }
+  if (result.next_actions?.length) {
+    parts.push("\nNext Actions:");
+    result.next_actions.forEach((a, i) => {
+      const text = typeof a === "string" ? a : JSON.stringify(a);
+      parts.push(`${i + 1}. ${text}`);
+    });
+  }
+  return parts.join("\n");
+}
+
 export function ResultsPanel({ result, onToast }: ResultsPanelProps) {
   const [actionWeek, setActionWeek] = useState(1);
 
@@ -104,6 +128,15 @@ export function ResultsPanel({ result, onToast }: ResultsPanelProps) {
 
   return (
     <div className="space-y-4">
+      {/* Copy full result */}
+      <div className="flex justify-end">
+        <CopyButton
+          text={getFullPlainText(result)}
+          onToast={onToast}
+          label="Copy"
+        />
+      </div>
+
       {/* Main summary */}
       {displayText && (
         <Card>

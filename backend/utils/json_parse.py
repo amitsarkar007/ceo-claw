@@ -1,6 +1,15 @@
-"""Robust JSON extraction from LLM responses that may include markdown, prose, or malformed JSON."""
+"""
+Robust JSON extraction from LLM responses.
 
+LLMs frequently return malformed JSON wrapped in markdown code fences (```json ... ```),
+with trailing commas, truncated output, or prose before/after. This module handles
+those cases and provides a last-resort ast.literal_eval fallback for Python-syntax
+dicts when json.loads fails.
+"""
+
+import ast
 import json
+import logging
 import re
 from typing import Optional
 
@@ -133,6 +142,9 @@ def _try_repair_truncated(text: str) -> Optional[dict]:
     return _try_parse(candidate)
 
 
+_log = logging.getLogger(__name__)
+
+
 def extract_json(raw: str) -> Optional[dict]:
     """
     Extract and parse JSON from LLM output. Handles:
@@ -140,6 +152,7 @@ def extract_json(raw: str) -> Optional[dict]:
     - Prose before/after the JSON
     - Trailing commas
     - Truncated JSON (best-effort repair)
+    - ast.literal_eval fallback for Python-syntax dicts when JSON fails
     """
     if not raw or not isinstance(raw, str):
         return None
@@ -162,9 +175,9 @@ def extract_json(raw: str) -> Optional[dict]:
         return None
 
     end = _find_json_boundary(text, start)
+    json_str = text[start : end + 1] if end != -1 else text[start:]
 
     if end != -1:
-        json_str = text[start : end + 1]
         result = _try_parse(json_str)
         if result is not None:
             return result
@@ -173,5 +186,18 @@ def extract_json(raw: str) -> Optional[dict]:
     result = _try_repair_truncated(text)
     if result is not None:
         return result
+
+    # Last resort: ast.literal_eval for Python-syntax dicts (e.g. single quotes, True/False)
+    for candidate in (json_str, text):
+        try:
+            parsed = ast.literal_eval(candidate)
+            if isinstance(parsed, dict):
+                _log.warning(
+                    "JSON parse failed; used ast.literal_eval fallback. "
+                    "Consider fixing LLM output format."
+                )
+                return parsed
+        except (ValueError, SyntaxError):
+            pass
 
     return None

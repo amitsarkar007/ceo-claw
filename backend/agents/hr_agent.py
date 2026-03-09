@@ -1,4 +1,5 @@
 import json
+from config import settings
 from integrations.zai import call_zai
 from utils.json_parse import extract_json
 
@@ -69,9 +70,15 @@ RULES:
 - The staff_communication_template must be genuinely copy-ready — not a skeleton with [blanks].
 - List at least 3 assumptions.
 - If escalation is needed, set escalate_to_human to true and explain why.
+
+CONVERSATION CONTINUITY:
+- If conversation history is provided, READ IT CAREFULLY before responding.
+- Build on what was already discussed — do NOT repeat the same advice.
+- If the user asks to expand, clarify, or continue, provide NEW detail on the same topic.
+- If the user asks "what about X instead", pivot to X while keeping the same sector context.
 """
 
-async def run_hr_agent(query: str) -> dict:
+async def run_hr_agent(query: str, conversation_history: list | None = None) -> dict:
     fallback = {
         "summary": "",
         "category": "general",
@@ -88,8 +95,10 @@ async def run_hr_agent(query: str) -> dict:
         "confidence": 0.3
     }
     try:
-        messages = [{"role": "user", "content": query}]
-        raw = await call_zai(messages, system_prompt=HR_SYSTEM, temperature=0.5)
+        from utils.history import build_history_aware_query
+        prompt = build_history_aware_query(query, conversation_history or [])
+        messages = [{"role": "user", "content": prompt}]
+        raw = await call_zai(messages, system_prompt=HR_SYSTEM, temperature=settings.HR_TEMPERATURE)
         if not raw:
             return fallback
         result = extract_json(raw)

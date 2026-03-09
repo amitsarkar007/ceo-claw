@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import type { HistoryEntry, AgentResult, PipelineEvent } from "./types";
+import type { HistoryEntry, AgentResult, PipelineEvent, ConversationTurn } from "./types";
 
 const HISTORY_KEY = "highstreet-ai-history";
 const MAX_HISTORY = 50;
@@ -50,15 +50,73 @@ export function useQueryHistory() {
   const addEntry = useCallback(
     (query: string, result: AgentResult, status: "pending" | "complete" = "complete"): string => {
       const id = crypto.randomUUID?.() ?? Date.now().toString(36);
-      const entry: HistoryEntry = { id, query, result, timestamp: Date.now(), status };
+      const entry: HistoryEntry = {
+        id,
+        query,
+        result,
+        timestamp: Date.now(),
+        status,
+        turns: [{ query, result: status === "complete" ? result : undefined }],
+      };
       setHistory((prev) => [entry, ...prev].slice(0, MAX_HISTORY));
       return id;
     },
     [setHistory]
   );
 
+  const appendTurn = useCallback(
+    (id: string, query: string) => {
+      setHistory((prev) =>
+        prev.map((e) => {
+          if (e.id !== id) return e;
+          const turns: ConversationTurn[] =
+            e.turns ?? [{ query: e.query, result: e.result }];
+          return {
+            ...e,
+            query: e.query,
+            result: turns[turns.length - 1]?.result ?? e.result,
+            turns: [...turns, { query, result: undefined }],
+            status: "pending",
+            pipelineEvents: [],
+          };
+        })
+      );
+    },
+    [setHistory]
+  );
+
+  const updateLastTurnResult = useCallback(
+    (id: string, result: AgentResult) => {
+      setHistory((prev) =>
+        prev.map((e) => {
+          if (e.id !== id) return e;
+          const turns: ConversationTurn[] =
+            e.turns ?? [{ query: e.query, result: e.result }];
+          const lastIdx = turns.length - 1;
+          const newTurns = [...turns];
+          newTurns[lastIdx] = { ...newTurns[lastIdx], result };
+          return {
+            ...e,
+            result,
+            turns: newTurns,
+            status: "complete",
+          };
+        })
+      );
+    },
+    [setHistory]
+  );
+
   const updateEntry = useCallback(
-    (id: string, updates: Partial<Pick<HistoryEntry, "result" | "status" | "pipelineEvents" | "conversationId">>) => {
+    (
+      id: string,
+      updates: Partial<
+        Pick<
+          HistoryEntry,
+          "query" | "result" | "status" | "pipelineEvents" | "conversationId"
+        >
+      >
+    ) => {
       setHistory((prev) =>
         prev.map((e) => (e.id === id ? { ...e, ...updates } : e))
       );
@@ -90,7 +148,17 @@ export function useQueryHistory() {
     setHistory([]);
   }, [setHistory]);
 
-  return { history, addEntry, updateEntry, appendPipelineEvent, removeEntry, clearHistory, loaded };
+  return {
+    history,
+    addEntry,
+    updateEntry,
+    appendTurn,
+    updateLastTurnResult,
+    appendPipelineEvent,
+    removeEntry,
+    clearHistory,
+    loaded,
+  };
 }
 
 export function useToast() {

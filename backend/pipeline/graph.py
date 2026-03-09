@@ -149,7 +149,12 @@ async def run_conversation_turn(
         conv.context["role"] = assessment["detected_role"]
 
     # STEP 3A: Need clarification — return questions without running pipeline
-    if assessment["mode"] == "needs_clarification" and conv.turn_count <= 2:
+    # Skip clarification if there's already a specialist response in history
+    has_prior_assistant_response = any(
+        m.role == "assistant" and getattr(m, "agent", None) != "orchestrator"
+        for m in conv.messages[:-1]
+    )
+    if assessment["mode"] == "needs_clarification" and conv.turn_count <= 2 and not has_prior_assistant_response:
         conv.status = "clarifying"
 
         questions = assessment.get("clarifying_questions", [])
@@ -173,18 +178,25 @@ async def run_conversation_turn(
             clarifying_questions=questions,
         )
 
-    # STEP 3B: Sufficient context — run full pipeline
-    enriched_query = message
-    if conv.context:
-        enriched_query = (
-            f"{message}\n\nContext from conversation: {json.dumps(conv.context)}"
-        )
+    # Build conversation history for multi-turn continuity
+    conversation_history = [
+        {"role": m.role, "content": m.content}
+        for m in conv.messages[:-1]
+    ]
+    last_agent = None
+    for m in reversed(conv.messages[:-1]):
+        if m.role == "assistant" and getattr(m, "agent", None):
+            last_agent = m.agent
+            break
 
+    # STEP 3B: Sufficient context — run full pipeline with history
     conv.status = "processing"
     result = await run_pipeline(
-        query=enriched_query,
+        query=message,
         context=conv.context,
         deploy=False,
+        conversation_history=conversation_history,
+        last_agent=last_agent,
     )
 
     summary = result.get("summary", result.get("answer", ""))
@@ -225,18 +237,25 @@ SPECIALIST_RUNNERS = {
 }
 
 
-async def run_pipeline_streaming(query: str, context: dict = {}, deploy: bool = False):
+async def run_pipeline_streaming(
+    query: str,
+    context: dict = {},
+    deploy: bool = False,
+    conversation_history: list | None = None,
+    last_agent: str | None = None,
+):
     """Async generator that yields SSE pipeline events then the final result."""
     from integrations.zai import set_fallback_used, get_fallback_used
 
     set_fallback_used(False)
     query_id = str(uuid.uuid4())
     pipeline_trace: list[str] = []
+    history = conversation_history or []
 
     yield {"type": "step", "agent": "orchestrator", "status": "started",
            "message": "Classifying your query & detecting business type"}
 
-    orch_result = await run_orchestrator(query, context)
+    orch_result = await run_orchestrator(query, context, conversation_history=history, last_agent=last_agent)
     pipeline_trace.append("orchestrator")
     await trace("orchestrator", query_id, orch_result)
 
@@ -245,15 +264,17 @@ async def run_pipeline_streaming(query: str, context: dict = {}, deploy: bool = 
         selected = "operations_agent"
     biz = (orch_result.get("detected_business_type") or "business").replace("_", " ")
 
+    is_followup = orch_result.get("is_followup", False)
+    followup_label = " (continuing)" if is_followup else ""
     yield {"type": "step", "agent": "orchestrator", "status": "complete",
-           "message": f"Detected {biz} · routing to {AGENT_LABELS.get(selected, selected)}"}
+           "message": f"Detected {biz} · routing to {AGENT_LABELS.get(selected, selected)}{followup_label}"}
 
     agent_label = AGENT_LABELS.get(selected, selected)
     yield {"type": "step", "agent": selected, "status": "started",
            "message": AGENT_VERBS.get(selected, f"{agent_label} working")}
 
     runner = SPECIALIST_RUNNERS.get(selected, run_operations_agent)
-    specialist_result = await runner(query)
+    specialist_result = await runner(query, conversation_history=history)
     pipeline_trace.append(selected)
     await trace(selected, query_id, specialist_result)
 
@@ -263,7 +284,7 @@ async def run_pipeline_streaming(query: str, context: dict = {}, deploy: bool = 
     yield {"type": "step", "agent": "reviewer", "status": "started",
            "message": "Validating numbers, UK compliance & plain English"}
 
-    reviewed = await run_reviewer(specialist_result, query)
+    reviewed = await run_reviewer(specialist_result, query, conversation_history=history)
     pipeline_trace.append("reviewer")
     await trace("reviewer", query_id, reviewed)
 
@@ -278,6 +299,7 @@ async def run_pipeline_streaming(query: str, context: dict = {}, deploy: bool = 
     result["detected_role"] = orch_result.get("detected_role")
     result["intent"] = orch_result.get("intent")
     result["selected_agent"] = orch_result.get("selected_agent")
+    result["is_followup"] = is_followup
     result["pipeline_trace"] = pipeline_trace
     result["fallback_used"] = get_fallback_used()
 
@@ -303,20 +325,31 @@ async def run_conversation_turn_streaming(
     else:
         conv = create_conversation()
 
+    from logger import set_correlation_ids
+    set_correlation_ids(conversation_id=conv.conversation_id)
+
     conv.messages.append(Msg(role="user", content=message))
     conv.turn_count += 1
     conv.context.update(context)
 
     yield {"type": "conversation", "conversation_id": conv.conversation_id}
 
+    import time
+    pipeline_events: list = []
+
     # Guardrails
     yield {"type": "step", "agent": "guardrails", "status": "started",
            "message": "Running safety checks"}
+    pipeline_events.append({"type": "step", "agent": "guardrails", "status": "started",
+                            "message": "Running safety checks", "timestamp": time.time() * 1000})
     guardrail_result = await check_guardrails(message, conv.messages)
 
     if guardrail_result["triggered"]:
         yield {"type": "step", "agent": "guardrails", "status": "complete",
                "message": "Safety concern detected"}
+        pipeline_events.append({"type": "step", "agent": "guardrails", "status": "complete",
+                                "message": "Safety concern detected", "timestamp": time.time() * 1000})
+        conv.pipeline_events = pipeline_events
         conv.status = "guardrail_triggered"
         update_conversation(conv)
         yield {"type": "guardrail",
@@ -327,10 +360,14 @@ async def run_conversation_turn_streaming(
 
     yield {"type": "step", "agent": "guardrails", "status": "complete",
            "message": "Safety checks passed"}
+    pipeline_events.append({"type": "step", "agent": "guardrails", "status": "complete",
+                            "message": "Safety checks passed", "timestamp": time.time() * 1000})
 
     # Orchestrator assess
     yield {"type": "step", "agent": "orchestrator_assess", "status": "started",
            "message": "Understanding your question"}
+    pipeline_events.append({"type": "step", "agent": "orchestrator_assess", "status": "started",
+                            "message": "Understanding your question", "timestamp": time.time() * 1000})
     history = [{"role": m.role, "content": m.content} for m in conv.messages[:-1]]
     assessment = await run_orchestrator_assess(message, history, conv.context)
 
@@ -341,10 +378,21 @@ async def run_conversation_turn_streaming(
 
     yield {"type": "step", "agent": "orchestrator_assess", "status": "complete",
            "message": "Context analysed"}
+    pipeline_events.append({"type": "step", "agent": "orchestrator_assess", "status": "complete",
+                            "message": "Context analysed", "timestamp": time.time() * 1000})
 
-    # Clarification needed?
-    if assessment["mode"] == "needs_clarification" and conv.turn_count <= 2:
+    # Clarification needed? Only on the first turn — follow-ups already have context.
+    has_prior_assistant_response = any(
+        m.role == "assistant" and getattr(m, "agent", None) != "orchestrator"
+        for m in conv.messages[:-1]
+    )
+    if (
+        assessment["mode"] == "needs_clarification"
+        and conv.turn_count <= 2
+        and not has_prior_assistant_response
+    ):
         conv.status = "clarifying"
+        conv.pipeline_events = pipeline_events
         questions = assessment.get("clarifying_questions", [])
         assistant_msg = "To give you the most relevant advice, I have a couple of quick questions:\n\n"
         for i, q in enumerate(questions, 1):
@@ -355,18 +403,34 @@ async def run_conversation_turn_streaming(
                "questions": questions}
         return
 
-    # Full pipeline
-    enriched_query = message
-    if conv.context:
-        enriched_query = f"{message}\n\nContext from conversation: {json.dumps(conv.context)}"
+    # Build conversation history (all messages BEFORE the current user message)
+    conversation_history = [
+        {"role": m.role, "content": m.content}
+        for m in conv.messages[:-1]
+    ]
 
+    # Detect the last agent that responded (for follow-up routing)
+    last_agent = None
+    for m in reversed(conv.messages[:-1]):
+        if m.role == "assistant" and getattr(m, "agent", None):
+            last_agent = m.agent
+            break
+
+    # Full pipeline — pass history + last_agent for multi-turn continuity
     conv.status = "processing"
     final_result = None
-    async for event in run_pipeline_streaming(enriched_query, conv.context):
-        if event["type"] == "result":
+    async for event in run_pipeline_streaming(
+        message, conv.context,
+        conversation_history=conversation_history,
+        last_agent=last_agent,
+    ):
+        if event["type"] == "step":
+            pipeline_events.append({**event, "timestamp": time.time() * 1000})
+        elif event["type"] == "result":
             final_result = event["data"]
         yield event
 
+    conv.pipeline_events = pipeline_events
     if final_result:
         summary = final_result.get("summary", final_result.get("answer", ""))
         conv.messages.append(Msg(
@@ -377,7 +441,7 @@ async def run_conversation_turn_streaming(
         update_conversation(conv)
 
 
-async def run_pipeline(query: str, context: dict = {}, deploy: bool = False) -> dict:
+async def run_pipeline(query: str, context: dict = {}, deploy: bool = False, conversation_history: list | None = None, last_agent: str | None = None) -> dict:
     set_fallback_used(False)
     pipeline = build_pipeline()
     

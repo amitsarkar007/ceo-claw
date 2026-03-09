@@ -17,8 +17,9 @@ dist/
 .env.local
 .env.*.local
 
-# Logs
-logs/*.json
+# Logs (keep logs/.gitkeep so directory exists)
+logs/*
+!logs/.gitkeep
 backend/logs/*.json
 
 # IDE

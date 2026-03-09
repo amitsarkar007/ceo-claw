@@ -6,6 +6,42 @@ Built for **UK AI Agent Hack EP4 x OpenClaw**.
 
 ---
 
+## Why Highstreet AI Instead of ChatGPT?
+
+> **ChatGPT is a tool. Highstreet AI is a team.**
+
+Most small business owners who try ChatGPT hit the same wall: it's powerful, but it puts all the work on you. You have to know what to ask, how to phrase it, and then figure out what to do with a generic answer. For a coffee shop owner managing staff, stock, and customers simultaneously, that's friction they don't have time for.
+
+Highstreet AI is built differently.
+
+| | ChatGPT | Highstreet AI |
+|---|---|---|
+| **Expertise** | One generalist model | Specialist agents per domain (Ops, HR, Market, AI Adoption) |
+| **UK context** | US-centric by default | HR agent grounded in UK employment law |
+| **Business memory** | Starts from zero every time | Remembers your business type, sector, and prior questions |
+| **Output format** | Prose you have to interpret | Structured plans with timelines, actions, and risk flags |
+| **Quality check** | None | Every response reviewed by a Reviewer agent before it reaches you |
+| **Onboarding** | You figure it out | Ask in plain English, get a structured plan back |
+
+### The Time Saving
+
+For a typical SMB owner spending ~5 hours/week on operational decisions, HR queries, and market research:
+
+| Task | ChatGPT | Highstreet AI | Weekly saving |
+|---|---|---|---|
+| Drafting a staff policy | ~45 min of prompt iteration | ~8 min | 37 min |
+| Researching local demand | ~60 min | ~12 min | 48 min |
+| Writing an AI adoption plan | ~90 min | ~15 min | 75 min |
+| Answering an HR question | ~30 min | ~5 min | 25 min |
+
+**That's roughly 3 hours/week reclaimed** — worth ~£6,000/year to the average UK SMB owner at £40/hr equivalent value. Highstreet AI pays for itself many times over.
+
+### Who It's For
+
+Highstreet AI is built for the 5.5 million small businesses in the UK — coffee shops, clinics, independent retailers, local accountants — that have historically been priced out of specialist business advice. No consultants, no enterprise software licences, no ML expertise required. Just ask your question in plain English and get an answer your business can act on today.
+
+---
+
 ## Prize Targets
 
 ### AI Agents for Good – Flock.io ($5,000)
@@ -40,9 +76,10 @@ The Reviewer Agent acts as a governance and validation layer across every pipeli
 |-------|------------|
 | **LLM** | Z.AI GLM (`glm-4-plus`) with FLock fallback |
 | **Orchestration** | LangGraph multi-agent pipeline |
-| **Backend** | FastAPI + Python 3.11 |
+| **Backend** | FastAPI + Python 3.11 · Pydantic Settings · SQLite |
 | **Frontend** | Next.js 14 · React 18 · TypeScript · Tailwind CSS |
 | **Tracing** | Anyway SDK (optional) |
+| **Linting** | Ruff (backend) · ESLint (frontend) |
 | **Deployment** | Docker Compose |
 
 ---
@@ -73,9 +110,9 @@ Orchestrator Route                               ◄── SSE: step started/com
       Final Output                               ◄── SSE: result
 ```
 
-Multi-turn conversations are supported — the orchestrator asks clarifying questions for vague queries before routing.
+**Multi-turn conversations** — the orchestrator assesses context sufficiency and may ask clarifying questions for vague first-time queries. For follow-up messages (e.g. "continue", "expand on that", "give me a more detailed plan"), it reuses the same specialist agent and passes the full conversation history so responses build on prior context. New chats (`conversation_id` omitted) start with zero history.
 
-The entire pipeline streams real-time progress events via **Server-Sent Events (SSE)** so the frontend can display a live ticker showing exactly which agent is working and how long each step takes.
+The entire pipeline streams real-time progress events via **Server-Sent Events (SSE)** so the frontend can display a collapsible live ticker showing exactly which agent is working and how long each step takes. The frontend persists chat history to `localStorage` and sends `conversation_id` with each request when continuing an existing chat.
 
 ---
 
@@ -106,13 +143,17 @@ GLM powers the entire reasoning layer of Highstreet AI — from understanding a 
 
 ## Key Features
 
-- **Real-time pipeline streaming** — SSE endpoint (`/api/query/stream`) emits live progress events as each agent works; the frontend displays a Pipeline Ticker with per-stage status, messages, and elapsed time
-- **Per-chat state isolation** — each conversation stores its own pipeline events, results, and conversation ID; switching between chats instantly restores the correct view
+- **Real-time pipeline streaming** — SSE endpoint (`/api/query/stream`) emits live progress events as each agent works; the frontend displays a collapsible Pipeline Ticker with per-stage status, messages, and elapsed time
+- **Multi-turn conversation memory** — full conversation history is passed to every agent; the orchestrator detects follow-up intent ("continue", "expand on that", "what about X instead") and re-routes to the same specialist without re-explaining context
+- **Scrollable conversation thread** — follow-up messages append to the same chat; all prior Q&A pairs remain visible in a scrollable thread; sidebar shows the first question and never overwrites on follow-up
+- **Per-chat state isolation** — each conversation stores its own pipeline events, results, and conversation ID in SQLite; switching between chats or starting a new chat gives a completely fresh context
 - **Concurrent processing** — start a new query while another is still running; background streams keep writing to their respective history entries
-- **Multi-turn conversations** — the orchestrator asks clarifying questions for vague queries before routing to a specialist
-- **Chat management** — instant history sidebar updates, delete individual chats, "Processing" badge on in-flight entries
+- **Clarifying questions** — the orchestrator asks targeted questions for vague queries before routing to a specialist (skipped for follow-ups when context already exists)
+- **Chat management** — instant history sidebar updates, delete individual chats, "Processing" badge on in-flight entries, Cmd+Enter / Ctrl+Enter to submit
+- **Copy to clipboard** — copy full results or next actions with one click; 2-second checkmark confirmation
 - **Automatic LLM fallback** — Z.AI GLM-4-Plus with seamless FLock failover after 3 retries
 - **Two-tier guardrails** — regex pattern matching for crisis/injection + LLM safety classifier
+- **Error boundary** — React error boundary wraps the main chat UI with a user-friendly fallback and refresh option
 
 ---
 
@@ -132,15 +173,18 @@ cd highstreet-ai
 cp .env.example .env
 ```
 
-Edit `.env` and add your API keys (see [Environment Variables](#environment-variables)).
+Edit `.env` and add your API keys (see [Environment Variables](#environment-variables)). Optionally run `python scripts/check_env.py` to verify required variables are set.
 
 ### 2. Start the backend
 
 ```bash
-cd backend
-pip install -r requirements.txt
-python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r backend/requirements.txt
+cd backend && python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
+
+Or use the Makefile: `make dev-backend` (from project root; ensure venv is activated).
 
 Backend runs at **http://localhost:8000**
 
@@ -152,11 +196,13 @@ npm install
 npm run dev
 ```
 
+Or: `make dev-frontend`
+
 Frontend runs at **http://localhost:3000**
 
 ### 4. Verify
 
-- Health check: http://localhost:8000/api/health
+- Health check: http://localhost:8000/api/health (returns version, uptime, Z.AI/FLock connectivity, conversation count, rate limit config)
 - API docs: http://localhost:8000/docs
 
 ---
@@ -188,6 +234,13 @@ Create `.env` in the project root before running (copy from `.env.example`).
 | `ANYWAY_ENABLED` | No | Set `false` to disable tracing |
 | `STRIPE_SECRET_KEY` | No | Stripe integration |
 | `FRONTEND_URL` | No | CORS origin (default: `http://localhost:3000`) |
+| `CORS_ORIGINS` | No | Comma-separated CORS origins (default: `*`) |
+| `CONVERSATIONS_DB_PATH` | No | SQLite path for conversation store (default: `./data/conversations.db`) |
+| `RATE_LIMIT_REQUESTS` | No | Max requests per window (default: 20) |
+| `RATE_LIMIT_WINDOW_MINUTES` | No | Rate limit window in minutes (default: 10) |
+| `NEXT_PUBLIC_API_URL` | No | Backend API URL for frontend (default: `http://localhost:8000`) |
+
+Run `python scripts/check_env.py` to verify required variables are set.
 
 ---
 
@@ -196,12 +249,13 @@ Create `.env` in the project root before running (copy from `.env.example`).
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/api/query` | Submit a query — blocking, returns full result |
-| `POST` | `/api/query/stream` | Submit a query — SSE stream with real-time pipeline events |
+| `POST` | `/api/query/stream` | Submit a query — SSE stream with real-time pipeline events. Send `conversation_id` (optional) to continue an existing chat. |
+| `GET` | `/api/conversation/{id}` | Retrieve full conversation details (messages, context, status) |
 | `DELETE` | `/api/conversation/{id}` | Clear a conversation |
 | `GET` | `/api/agents` | List the agent registry |
-| `GET` | `/api/health` | Health check |
+| `GET` | `/api/health` | Health check — returns status, version, uptime, Z.AI/FLock connectivity, conversation count, rate limit config |
 
-Rate limited to 20 requests per 10 minutes per IP.
+Rate limited to 20 requests per 10 minutes per IP (configurable via `RATE_LIMIT_REQUESTS` and `RATE_LIMIT_WINDOW_MINUTES`).
 
 ### SSE Stream Events
 
@@ -223,59 +277,68 @@ The `/api/query/stream` endpoint returns `text/event-stream` with these event ty
 ```
 highstreet-ai/
 ├── backend/
-│   ├── main.py                          # FastAPI entry point + routes
+│   ├── main.py                          # FastAPI entry point + routes + health
+│   ├── config.py                        # Pydantic settings (env vars, model names, rate limits)
+│   ├── version.py                       # App version (exposed in /api/health)
 │   ├── agents/
-│   │   ├── orchestrator.py              # Intent classification + routing
+│   │   ├── orchestrator.py              # Intent classification + routing + follow-up detection
 │   │   ├── operations_agent.py          # Workflow, logistics, scheduling
 │   │   ├── hr_agent.py                  # HR, wellbeing, UK employment
 │   │   ├── adoption_agent.py            # AI adoption scoring + automation
 │   │   ├── market_intelligence_agent.py # Demand forecasting + trends
 │   │   ├── reviewer.py                  # Output QA + risk flagging
-│   │   └── guardrails.py               # Safety: regex + LLM classifier
+│   │   └── guardrails.py                # Safety: regex + LLM classifier
 │   ├── pipeline/
-│   │   └── graph.py                     # LangGraph workflow + SSE streaming generators
+│   │   └── graph.py                     # LangGraph workflow + SSE streaming + conversation history
 │   ├── integrations/
 │   │   ├── zai.py                       # Z.AI client (with FLock fallback)
 │   │   └── anyway.py                    # Anyway SDK tracing
 │   ├── schemas/
-│   │   ├── conversation.py              # QueryRequest, QueryResponse, Message
+│   │   ├── conversation.py              # QueryRequest (validated), QueryResponse, Message
 │   │   └── response.py                  # Structured response models
 │   ├── store/
-│   │   └── conversations.py             # In-memory conversation state
+│   │   └── conversations.py             # SQLite conversation persistence
 │   ├── utils/
-│   │   └── json_parse.py               # Robust JSON extraction from LLM output
+│   │   ├── json_parse.py                # Robust JSON extraction (ast.literal_eval fallback)
+│   │   └── history.py                   # Conversation history formatting for agents
 │   ├── registry.py                      # Agent metadata registry
-│   ├── logger.py                        # JSON run logging
+│   ├── logger.py                        # Structured logging (request_id, conversation_id)
 │   ├── requirements.txt
 │   └── Dockerfile
 ├── frontend/
 │   ├── app/
 │   │   ├── layout.tsx                   # Root layout + metadata
-│   │   ├── page.tsx                     # Main chat UI
+│   │   ├── page.tsx                     # Main chat UI (thread view, ErrorBoundary)
 │   │   ├── globals.css                  # Global styles
 │   │   ├── dashboard/page.tsx           # Dashboard view
-│   │   └── product/[id]/page.tsx        # Product detail view
+│   │   └── product/[id]/page.tsx        # Product detail (Coming Soon)
 │   ├── components/
+│   │   ├── ErrorBoundary.tsx            # React error boundary
 │   │   ├── Header.tsx                   # App header
 │   │   ├── Footer.tsx                   # App footer
-│   │   ├── QueryInput.tsx               # Query input form
+│   │   ├── QueryInput.tsx               # Query input (Cmd+Enter submit)
 │   │   ├── QueryPanel.tsx               # Query submission panel
 │   │   ├── QueryHistory.tsx             # Conversation history sidebar
-│   │   ├── ResultsPanel.tsx             # Structured results display
+│   │   ├── ResultsPanel.tsx             # Structured results + Copy button
 │   │   ├── PipelineIndicator.tsx        # Agent pipeline animation
 │   │   └── Toast.tsx                    # Notification toasts
 │   ├── lib/
-│   │   ├── api.ts                       # Backend API client (REST + SSE streaming)
-│   │   ├── types.ts                     # TypeScript interfaces (PipelineEvent, HistoryEntry, etc.)
-│   │   ├── hooks.ts                     # Custom React hooks (per-entry pipeline events)
+│   │   ├── api.ts                       # Backend API (REST + SSE + getConversation)
+│   │   ├── types.ts                     # HistoryEntry, ConversationTurn, etc.
+│   │   ├── hooks.ts                     # useQueryHistory (turns, appendTurn, updateLastTurnResult)
 │   │   └── utils.ts                     # Utility functions
 │   ├── public/
 │   │   └── favicon.svg
 │   ├── package.json
 │   ├── tailwind.config.js
 │   └── Dockerfile
-├── logs/                                # JSON run logs (gitignored)
+├── scripts/
+│   └── check_env.py                     # Verify .env completeness
+├── logs/                                # JSON run logs (gitignored, logs/.gitkeep tracked)
+├── data/                                # SQLite DB (gitignored)
 ├── .env.example
+├── Makefile                             # dev-backend, dev-frontend, docker-up, lint-*
+├── pyproject.toml                       # Ruff lint config
 ├── docker-compose.yml
 └── README.md
 ```
@@ -320,13 +383,19 @@ Watch the **live Pipeline Ticker** — real-time SSE events show each stage as i
 - Action plan with timeline
 - Risks and assumptions
 
-**Step 3** — Enter a second query to demonstrate multi-agent routing:
+**Step 3** — Enter a follow-up to demonstrate multi-turn memory:
+
+> "Can you give me a more detailed week-by-week plan for that?"
+
+The same chat entry stays selected; the first response remains visible; the second response appends below in a scrollable thread. The orchestrator shows "routing to Operations Agent (continuing)" — no re-explaining, builds on prior context.
+
+**Step 4** — Enter a different-domain query to demonstrate multi-agent routing:
 
 > "I'm struggling to get my staff to use AI tools at my bakery — how do I measure if it's working?"
 
-This routes to the **Adoption Agent** instead — the orchestrator picks the right specialist automatically.
+Click "+ New" first for a fresh chat, then submit. This routes to the **Adoption Agent** — the orchestrator picks the right specialist automatically.
 
-**Step 4** — Show the dashboard metrics:
+**Step 5** — Show the dashboard metrics:
 - Active Agents: 4
 - AI Adoption Score: 68%
 - Estimated Time Saved: 8 hrs/week
@@ -334,6 +403,29 @@ This routes to the **Adoption Agent** instead — the orchestrator picks the rig
 
 **Closing**:
 "Highstreet AI gives every small business owner their own digital workforce — without needing a single developer on staff."
+
+---
+
+## Development
+
+| Command | Description |
+|---------|-------------|
+| `make dev-backend` | Start backend (uvicorn) |
+| `make dev-frontend` | Start frontend (Next.js dev) |
+| `make docker-up` | Run with Docker Compose |
+| `make docker-down` | Stop Docker Compose |
+| `make lint-backend` | Run Ruff on backend (requires `pip install ruff`) |
+| `make lint-frontend` | Run ESLint on frontend |
+
+---
+
+## Known Limitations
+
+- **Conversation persistence**: Conversations are stored in SQLite (`./data/conversations.db`) and survive restarts. Frontend chat history (including full thread with turns) is in localStorage — metadata and results persist across refreshes; backend store holds the canonical conversation state.
+- **No authentication**: API endpoints are unauthenticated. Do not expose the API publicly without adding auth.
+- **Rate limiting**: IP-based only (20 requests per 10 minutes per IP, configurable). No per-user or per-API-key limits.
+- **glm-5**: Requires streaming responses; the backend uses non-streaming. Use `glm-4-plus` (recommended) or implement streaming to use glm-5.
+- **Dashboard metrics**: Currently derived from localStorage history (frontend only). Not computed from live backend data or SQLite.
 
 ---
 

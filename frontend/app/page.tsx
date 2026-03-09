@@ -31,6 +31,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { ToastContainer } from "@/components/Toast";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ResultsPanel } from "@/components/ResultsPanel";
 import { queryAgentsStream, clearConversation } from "@/lib/api";
 import { useQueryHistory, useToast } from "@/lib/hooks";
 import { cn, formatConfidence, formatAgent } from "@/lib/utils";
@@ -123,7 +125,27 @@ const SPECIALIST_SET = new Set([
   "market_intelligence_agent",
 ]);
 
+const PIPELINE_COLLAPSED_KEY = "highstreet-ai-pipeline-collapsed";
+
 function PipelineTicker({ events }: { events: PipelineEvent[] }) {
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return localStorage.getItem(PIPELINE_COLLAPSED_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleCollapsed = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    try {
+      localStorage.setItem(PIPELINE_COLLAPSED_KEY, String(next));
+    } catch {
+      /* ignore */
+    }
+  };
   const observed = new Map<
     string,
     { started?: number; completed?: number; startMsg?: string; endMsg?: string }
@@ -156,7 +178,11 @@ function PipelineTicker({ events }: { events: PipelineEvent[] }) {
   return (
     <div className="max-w-md w-full animate-fade-in">
       <div className="rounded-xl border border-[#e8e8e8] dark:border-[#2a2a2a] bg-white dark:bg-[#1a1a1a] overflow-hidden shadow-sm">
-        <div className="px-5 py-3 bg-[#fafafa] dark:bg-[#111111] border-b border-[#e8e8e8] dark:border-[#2a2a2a]">
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          className="w-full px-5 py-3 bg-[#fafafa] dark:bg-[#111111] border-b border-[#e8e8e8] dark:border-[#2a2a2a] flex items-center justify-between gap-2 hover:bg-[#f0f0f0] dark:hover:bg-[#1a1a1a] transition-colors"
+        >
           <div className="flex items-center gap-2">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#cc4400] dark:bg-[#ff6b35] opacity-75" />
@@ -166,7 +192,11 @@ function PipelineTicker({ events }: { events: PipelineEvent[] }) {
               Pipeline Activity
             </p>
           </div>
-        </div>
+          <span className="text-[#666666] dark:text-[#888888] text-[12px]">
+            {collapsed ? "▼" : "▲"}
+          </span>
+        </button>
+        {!collapsed && (
         <div className="px-5 py-4 space-y-3">
           {stages.map((key) => {
             const data = observed.get(key);
@@ -242,6 +272,7 @@ function PipelineTicker({ events }: { events: PipelineEvent[] }) {
             );
           })}
         </div>
+        )}
       </div>
     </div>
   );
@@ -275,11 +306,13 @@ export default function Home() {
   const [actionWeek, setActionWeek] = useState(1);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [nextActionsCopied, setNextActionsCopied] = useState(false);
+  const [fullResultCopied, setFullResultCopied] = useState(false);
   const [animateResults, setAnimateResults] = useState(false);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const activeHistoryIdRef = useRef<string | null>(null);
-  const { history, addEntry, updateEntry, appendPipelineEvent, removeEntry, clearHistory } = useQueryHistory();
+  const threadScrollRef = useRef<HTMLDivElement>(null);
+  const { history, addEntry, updateEntry, appendTurn, updateLastTurnResult, appendPipelineEvent, removeEntry, clearHistory } = useQueryHistory();
   const { toasts, toast, dismiss } = useToast();
 
   /* effects */
@@ -385,7 +418,7 @@ export default function Home() {
           }
         } else if (event.type === "result") {
           const resultData = (event.data ?? {}) as AgentResult;
-          updateEntry(entryId, { result: resultData, status: "complete" });
+          updateLastTurnResult(entryId, resultData);
           if (activeHistoryIdRef.current === entryId) {
             setConversationStatus("complete");
             setResult(resultData);
@@ -412,17 +445,25 @@ export default function Home() {
         }
       });
     },
-    [appendPipelineEvent, updateEntry, toast]
+    [appendPipelineEvent, updateEntry, updateLastTurnResult, toast]
   );
 
   const handleSubmit = useCallback(() => {
     const trimmed = query.trim();
     if (!trimmed) return;
 
-    const entryId = addEntry(trimmed, {} as AgentResult, "pending");
+    const isFollowUp = !!(conversationId && activeHistoryId);
+    const entryId = isFollowUp
+      ? activeHistoryId!
+      : addEntry(trimmed, {} as AgentResult, "pending");
+
+    if (isFollowUp) {
+      appendTurn(entryId, trimmed);
+    }
+
     setQuery("");
     setError("");
-    setResult(null);
+    if (!isFollowUp) setResult(null);
     setGuardrailMessage(null);
     setGuardrailType(null);
     setClarifyingQuestions([]);
@@ -440,7 +481,7 @@ export default function Home() {
     ]);
 
     runStream(entryId, trimmed, conversationId);
-  }, [query, conversationId, addEntry, runStream]);
+  }, [query, conversationId, activeHistoryId, addEntry, appendTurn, runStream]);
 
   const handleClarifySubmit = useCallback(() => {
     const answerParts: string[] = [];
@@ -491,15 +532,30 @@ export default function Home() {
     setQuery("");
     setConversationId(entry.conversationId ?? null);
 
+    const lastResult = entry.turns?.at(-1)?.result ?? entry.result;
     if (entry.status === "pending") {
       setConversationStatus("processing");
-      setResult(null);
+      setResult(entry.turns?.at(-2)?.result ?? null);
       setAnimateResults(false);
     } else {
-      setConversationStatus(entry.result?.summary ? "complete" : "idle");
-      setResult(entry.result ?? null);
+      setConversationStatus(lastResult?.summary ? "complete" : "idle");
+      setResult(lastResult ?? null);
       setAnimateResults(false);
     }
+
+    const restoredMessages: ChatMessage[] = [];
+    const turns = entry.turns ?? [{ query: entry.query, result: entry.result }];
+    for (const t of turns) {
+      restoredMessages.push({ role: "user", content: t.query, type: "query" });
+      if (t.result?.summary || t.result?.answer) {
+        restoredMessages.push({
+          role: "assistant",
+          content: t.result.summary || t.result.answer || "",
+          type: "answer",
+        });
+      }
+    }
+    setMessages(restoredMessages);
   }, []);
 
   const handleSectorClick = (sectorAppend: string) => {
@@ -509,6 +565,31 @@ export default function Home() {
       setQuery((prev) => `${prev} — I run a ${sectorAppend}`);
     }
     inputRef.current?.focus();
+  };
+
+  const handleCopyFullResult = async () => {
+    if (!result) return;
+    const parts: string[] = [];
+    const t = result.summary || result.answer || "";
+    if (t) parts.push(`AI Recommendation:\n${t}`);
+    if (result.key_metrics?.length) {
+      parts.push("\nKey Metrics:");
+      result.key_metrics.forEach((m) => {
+        parts.push(`- ${m.metric_name}: ${m.current_estimate} vs ${m.uk_benchmark}`);
+      });
+    }
+    if (result.quick_wins?.length) {
+      parts.push("\nQuick Wins:");
+      result.quick_wins.forEach((w) => parts.push(`- ${w.action}: ${w.impact}`));
+    }
+    if (result.next_actions?.length) {
+      parts.push("\nNext Actions:");
+      result.next_actions.forEach((a, i) => parts.push(`${i + 1}. ${safeText(a)}`));
+    }
+    await navigator.clipboard.writeText(parts.join("\n"));
+    setFullResultCopied(true);
+    toast("Copied to clipboard");
+    setTimeout(() => setFullResultCopied(false), 2000);
   };
 
   const handleCopyNextActions = async () => {
@@ -527,6 +608,12 @@ export default function Home() {
     ? history.find((e) => e.id === activeHistoryId)
     : undefined;
   const isProcessing = activeEntry?.status === "pending";
+  const turns =
+    activeEntry?.turns ??
+    (activeEntry
+      ? [{ query: activeEntry.query, result: activeEntry.result }]
+      : []);
+  const showThread = activeEntry && turns.length >= 1;
   const displayText = result?.summary || result?.answer || "";
   const fi =
     result?.financial_impact_monthly_gbp || result?.financial_value_monthly_gbp;
@@ -552,6 +639,12 @@ export default function Home() {
       : "opacity-100";
   const rowStyle = (delayMs: number) =>
     animateResults ? { animationDelay: `${delayMs}ms` } : undefined;
+
+  useEffect(() => {
+    if (showThread && threadScrollRef.current) {
+      threadScrollRef.current.scrollTop = threadScrollRef.current.scrollHeight;
+    }
+  }, [showThread, turns.length, isProcessing, activeEntry?.pipelineEvents?.length]);
 
   /* ─── input section (ChatGPT-style) ──────────────────────────────── */
 
@@ -701,10 +794,88 @@ export default function Home() {
         </div>
       )}
 
-      {/* STATE 3: Loading / pipeline ticker */}
-      {showLoading && (
+      {/* THREAD VIEW — scrollable conversation with all turns */}
+      {showThread && !showClarifying && !showGuardrail && (
+        <div className="flex flex-col h-full min-h-0">
+          <div
+            ref={threadScrollRef}
+            className="flex-1 overflow-y-auto space-y-6 pb-6"
+          >
+            {turns.map((turn, i) => (
+              <div key={i} className="space-y-3 animate-fade-in">
+                {/* User message */}
+                <div className="flex justify-end">
+                  <div className="max-w-[85%] rounded-2xl rounded-br-md bg-[#cc4400] dark:bg-[#ff6b35] text-white dark:text-black px-4 py-2.5 text-[14px] leading-relaxed">
+                    {turn.query}
+                  </div>
+                </div>
+                {/* Assistant response */}
+                {turn.result ? (
+                  <div className="flex justify-start">
+                    <div className="w-full max-w-2xl">
+                      <ResultsPanel
+                        result={turn.result}
+                        onToast={(msg) => toast(msg)}
+                      />
+                    </div>
+                  </div>
+                ) : i === turns.length - 1 && isProcessing ? (
+                  <div className="flex justify-start">
+                    <div className="w-full max-w-2xl">
+                      {(activeEntry?.pipelineEvents?.length ?? 0) === 0 ? (
+                        <div className="rounded-xl border border-[#e8e8e8] dark:border-[#2a2a2a] bg-white dark:bg-[#1a1a1a] overflow-hidden shadow-sm">
+                          <div className="px-5 py-3 bg-[#fafafa] dark:bg-[#111111] border-b border-[#e8e8e8] dark:border-[#2a2a2a]">
+                            <div className="h-4 w-32 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
+                          </div>
+                          <div className="px-5 py-4 space-y-3">
+                            {[1, 2, 3, 4, 5].map((j) => (
+                              <div key={j} className="flex items-start gap-3">
+                                <div className="h-5 w-5 rounded-full bg-slate-200 dark:bg-slate-700 animate-pulse flex-shrink-0" />
+                                <div className="flex-1 space-y-1">
+                                  <div className="h-4 w-24 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
+                                  <div className="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded animate-pulse" />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <PipelineTicker events={activeEntry?.pipelineEvents ?? []} />
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* STATE 3: Loading / pipeline ticker (when no thread yet) */}
+      {showLoading && !showThread && (
         <div className="flex flex-col items-center justify-center h-full min-h-[300px]">
-          <PipelineTicker events={activeEntry?.pipelineEvents ?? []} />
+          {(activeEntry?.pipelineEvents?.length ?? 0) === 0 ? (
+            <div className="max-w-md w-full animate-fade-in space-y-3">
+              <div className="rounded-xl border border-[#e8e8e8] dark:border-[#2a2a2a] bg-white dark:bg-[#1a1a1a] overflow-hidden shadow-sm">
+                <div className="px-5 py-3 bg-[#fafafa] dark:bg-[#111111] border-b border-[#e8e8e8] dark:border-[#2a2a2a]">
+                  <div className="h-4 w-32 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
+                </div>
+                <div className="px-5 py-4 space-y-3">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <div className="h-5 w-5 rounded-full bg-slate-200 dark:bg-slate-700 animate-pulse flex-shrink-0" />
+                      <div className="flex-1 space-y-1">
+                        <div className="h-4 w-24 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
+                        <div className="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded animate-pulse" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <PipelineTicker events={activeEntry?.pipelineEvents ?? []} />
+          )}
         </div>
       )}
 
@@ -757,9 +928,27 @@ export default function Home() {
         </div>
       )}
 
-      {/* STATE 4: Results dashboard */}
-      {hasResults && (
+      {/* STATE 4: Results dashboard (single-turn, no thread) */}
+      {hasResults && !showThread && (
         <div className="space-y-4">
+          {/* ROW 0 — Copy full result */}
+          <div className={rowClass(0)} style={rowStyle(0)}>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleCopyFullResult}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium text-[#666666] dark:text-[#888888] hover:text-[#1a1a1a] dark:hover:text-[#e8e8e8] hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                {fullResultCopied ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" />
+                )}
+                {fullResultCopied ? "Copied" : "Copy"}
+              </button>
+            </div>
+          </div>
+
           {/* ROW 1 — Pipeline trace bar */}
           {(result.selected_agent || result.confidence != null) && (
             <div
@@ -1834,9 +2023,11 @@ export default function Home() {
                     )}
                   >
                     <p className="text-[13px] font-bold text-[#1a1a1a] dark:text-[#e8e8e8] truncate">
-                      {entry.query.length > 50
-                        ? entry.query.substring(0, 50) + "…"
-                        : entry.query}
+                      {(() => {
+                        const label =
+                          (entry.turns?.[0]?.query ?? entry.query) || "New conversation";
+                        return label.length > 50 ? label.substring(0, 50) + "…" : label;
+                      })()}
                     </p>
                     <div className="flex items-center gap-2 mt-1">
                       {isPending ? (
@@ -1844,9 +2035,9 @@ export default function Home() {
                           <Loader2 className="h-2.5 w-2.5 animate-spin" />
                           Processing
                         </span>
-                      ) : entry.result?.selected_agent ? (
+                      ) : (entry.turns?.at(-1)?.result ?? entry.result)?.selected_agent ? (
                         <span className="rounded-full bg-[#cc4400]/10 dark:bg-[#ff6b35]/10 px-2 py-0.5 text-[10px] font-semibold text-[#cc4400] dark:text-[#ff6b35] capitalize">
-                          {entry.result.selected_agent.replace(/_/g, " ")}
+                          {((entry.turns?.at(-1)?.result ?? entry.result)!.selected_agent ?? "").replace(/_/g, " ")}
                         </span>
                       ) : null}
                       <span className="text-[11px] text-[#999999]">
@@ -1893,6 +2084,7 @@ export default function Home() {
   /* ─── render ──────────────────────────────────────────────────────── */
 
   return (
+    <ErrorBoundary>
     <div className="h-screen overflow-hidden flex flex-col">
       {/* TOP HEADER BAR */}
       <header className="h-[56px] flex items-center justify-center px-4 bg-[#fafafa] dark:bg-[#111111] border-b border-[#eeeeee] dark:border-[#222222] flex-shrink-0 relative">
@@ -2016,5 +2208,6 @@ export default function Home() {
 
       <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </div>
+    </ErrorBoundary>
   );
 }

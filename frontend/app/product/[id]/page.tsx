@@ -28,17 +28,18 @@ export default function ProductPage({ params }: { params: { id: string } }) {
         </div>
 
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 text-center">
-          <ExternalLink className="h-10 w-10 text-slate-200 dark:text-slate-700 mx-auto mb-4" />
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30 mb-4">
+            <span className="text-3xl">🚧</span>
+          </div>
           <h2 className="text-lg font-semibold text-slate-700 dark:text-slate-300">
-            Deployed Product
+            Coming Soon
           </h2>
           <p className="text-sm text-slate-400 dark:text-slate-500 mt-2 max-w-md mx-auto">
-            This page will display the live deployed product details, Lovable
-            build preview, and Stripe payment integration for product{" "}
+            Product details, Lovable build preview, and Stripe integration for{" "}
             <code className="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-xs font-mono">
               {params.id}
-            </code>
-            .
+            </code>{" "}
+            will appear here once deployed.
           </p>
           <Link
             href="/"

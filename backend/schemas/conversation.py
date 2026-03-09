@@ -1,7 +1,17 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 import uuid
+
+
+def _validate_uuid(v: str | None) -> str | None:
+    if v is None or v == "":
+        return v
+    try:
+        uuid.UUID(str(v))
+        return v
+    except (ValueError, TypeError):
+        raise ValueError("conversation_id must be a valid UUID")
 
 
 class Message(BaseModel):
@@ -20,12 +30,28 @@ class ConversationState(BaseModel):
     turn_count: int = 0
     detected_sector: Optional[str] = None
     detected_role: Optional[str] = None
+    pipeline_events: List[Dict[str, Any]] = []
 
 
 class QueryRequest(BaseModel):
     message: str
     conversation_id: Optional[str] = None
     context: Dict[str, Any] = {}
+
+    @field_validator("message")
+    @classmethod
+    def message_non_empty_and_bounded(cls, v: str) -> str:
+        v = (v or "").strip()
+        if not v:
+            raise ValueError("Query must be non-empty")
+        if len(v) > 2000:
+            raise ValueError("Query must be under 2000 characters")
+        return v
+
+    @field_validator("conversation_id")
+    @classmethod
+    def conversation_id_valid_uuid(cls, v: str | None) -> str | None:
+        return _validate_uuid(v)
 
 
 class QueryResponse(BaseModel):

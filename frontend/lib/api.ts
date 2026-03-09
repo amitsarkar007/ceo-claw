@@ -62,6 +62,13 @@ export async function queryAgents(
   return res.json();
 }
 
+export async function getConversation(conversationId: string) {
+  const res = await fetch(`${API_URL}/api/conversation/${conversationId}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new ApiError(await res.text().catch(() => ""), res.status);
+  return res.json();
+}
+
 export async function clearConversation(conversationId: string): Promise<void> {
   await fetchWithRetry(`${API_URL}/api/conversation/${conversationId}`, {
     method: "DELETE",

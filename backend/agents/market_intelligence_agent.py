@@ -1,3 +1,4 @@
+from config import settings
 from integrations.zai import call_zai
 from utils.json_parse import extract_json
 
@@ -89,9 +90,15 @@ RULES:
 - List at least 3 assumptions.
 - Every next_action must include WHO, WHEN, and HOW LONG.
 - Be specific about UK bank holidays, school term dates, and seasonal patterns — not generic "holiday season" language.
+
+CONVERSATION CONTINUITY:
+- If conversation history is provided, READ IT CAREFULLY before responding.
+- Build on what was already discussed — do NOT repeat the same advice.
+- If the user asks to expand, clarify, or continue, provide NEW detail on the same topic.
+- If the user asks "what about X instead", pivot to X while keeping the same sector context.
 """
 
-async def run_market_intelligence_agent(query: str) -> dict:
+async def run_market_intelligence_agent(query: str, conversation_history: list | None = None) -> dict:
     fallback = {
         "summary": "",
         "sector": "general",
@@ -114,8 +121,10 @@ async def run_market_intelligence_agent(query: str) -> dict:
         "confidence": 0.3
     }
     try:
-        messages = [{"role": "user", "content": query}]
-        raw = await call_zai(messages, system_prompt=MARKET_INTELLIGENCE_SYSTEM, temperature=0.4)
+        from utils.history import build_history_aware_query
+        prompt = build_history_aware_query(query, conversation_history or [])
+        messages = [{"role": "user", "content": prompt}]
+        raw = await call_zai(messages, system_prompt=MARKET_INTELLIGENCE_SYSTEM, temperature=settings.MARKET_INTELLIGENCE_TEMPERATURE)
         if not raw:
             return fallback
         result = extract_json(raw)

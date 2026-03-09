@@ -191,6 +191,11 @@ export interface PipelineEvent {
   timestamp: number;
 }
 
+export interface ConversationTurn {
+  query: string;
+  result?: AgentResult;
+}
+
 export interface HistoryEntry {
   id: string;
   query: string;
@@ -199,6 +204,8 @@ export interface HistoryEntry {
   status?: "pending" | "complete";
   pipelineEvents?: PipelineEvent[];
   conversationId?: string | null;
+  /** Multi-turn conversation thread. If present, entry represents a full thread. */
+  turns?: ConversationTurn[];
 }
 
 export type PipelineStage = "idle" | "orchestrator" | "specialist" | "reviewer" | "complete";
